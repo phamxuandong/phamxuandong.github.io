@@ -1,0 +1,326 @@
+<!--
+* Tên file: index.html
+* Vị trí lưu dự kiến: / (Thư mục gốc repository phamxuandong.github.io)
+* Chức năng cơ bản:
+* - Trang chủ cá nhân NIKS.
+* - Hỗ trợ PWA (Progressive Web App): Cho phép tải về và cài đặt như App trên màn hình điện thoại.
+* - Logo ở góc trên bên trái được liên kết đến trang /home.
+* - Tích hợp Hero Section toàn màn hình và giao diện responsive bằng TailwindCSS.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NIKS - Đồng hành cùng bạn</title>
+    
+    <!-- === CẤU HÌNH PWA (WEB APP) === -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#041737">
+    
+    <!-- Cấu hình riêng cho thiết bị Apple (iOS) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NIKS App">
+    
+    <!-- Khai báo Icon -->
+    <link rel="icon" type="image/png" sizes="192x192" href="niks_192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="niks_512.png">
+    <link rel="apple-touch-icon" href="niks_512.png">
+
+    <!-- Cài đặt TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'niks-navy': '#041737', 
+                        'niks-orange': '#f38900', 
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+                        logo: ['"Noto Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans:wght@400;500;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* =========================================
+           GLOBAL & BACKGROUND STYLES
+           ========================================= */
+        body {
+            background-color: #ffffff;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 24px 24px;
+            color: #041737;
+            /* Chống highlight text khi tap trên mobile để có cảm giác giống App hơn */
+            -webkit-tap-highlight-color: transparent; 
+        }
+        
+        html { scroll-behavior: smooth; }
+        
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up {
+            animation: fadeUp 1s ease-out forwards;
+        }
+
+        /* =========================================
+           ANIMATION BANNER -> ICON STYLES
+           ========================================= */
+        .app-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; 
+            z-index: 10;
+            animation: morphApp 26s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        }
+
+        .logo-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            animation: groupMove 26s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        }
+
+        .logo-text {
+            font-size: 220px;
+            font-weight: 800;
+            color: #ffffff;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .slogan-wrapper {
+            animation: sloganMorph 26s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+            overflow: hidden;
+        }
+
+        .slogan-text {
+            font-size: 26px;
+            font-weight: 400;
+            color: #ffffff;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .slogan-divider {
+            font-weight: 300;
+            opacity: 0.8;
+            font-size: 30px;
+        }
+
+        .char-box {
+            animation: charFadeInOut 26s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+            display: inline-block;
+        }
+        .char-n, .char-k, .char-s { position: relative; z-index: 10; }
+        .i-box {
+            position: relative;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 4px;
+            z-index: 1;
+        }
+        .stem { position: relative; z-index: 10; }
+
+        .delay-1 { animation-delay: 0s; }
+        .delay-2 { animation-delay: 0.3s; }
+        .delay-3 { animation-delay: 0.6s; }
+        .delay-4 { animation-delay: 0.9s; }
+        .delay-5 { animation-delay: 1.5s; }
+
+        .dot-wrapper {
+            position: absolute;
+            top: 0.18em;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: -1; 
+        }
+
+        .dot {
+            width: 0.28em;
+            height: 0.28em;
+            background-color: #ffffff;
+            border-radius: 50%;
+            transform-origin: center bottom;
+            animation: dotMorph 26s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        }
+
+        @keyframes morphApp {
+            0%, 29% { width: 100%; height: 100%; border-radius: 0; background-color: #041737; }
+            35%, 73% { width: min(512px, 85vw); height: min(512px, 85vw); border-radius: 20%; background-color: #041737; box-shadow: 0 25px 50px -12px rgba(4, 23, 55, 0.4); }
+            79%, 100% { width: 100%; height: 100%; border-radius: 0; background-color: #041737; }
+        }
+
+        @keyframes groupMove {
+            0%, 29% { transform: translateY(0) scale(1); }
+            35%, 73% { transform: translateY(120px) scale(0.85); }
+            79%, 100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes sloganMorph {
+            0%, 29% { opacity: 1; max-height: 50px; transform: scale(1); margin-top: 15px; }
+            35%, 73% { opacity: 0; max-height: 0; transform: scale(0); margin-top: 0; }
+            79%, 100% { opacity: 1; max-height: 50px; transform: scale(1); margin-top: 15px; }
+        }
+
+        @keyframes charFadeInOut {
+            0% { opacity: 0; transform: translateY(50px); }
+            5%, 88% { opacity: 1; transform: translateY(0); }
+            94%, 100% { opacity: 0; transform: translateY(-40px); }
+        }
+
+        @keyframes dotMorph {
+            0%, 6% { background-color: #ffffff; transform: scale(1); }
+            11%, 29% { background-color: #f38900; transform: scale(1.3); } 
+            35%, 73% { background-color: #f38900; transform: scale(12.7); }
+            79%, 88% { background-color: #f38900; transform: scale(1.3); }
+            94%, 100% { background-color: #ffffff; transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            .logo-text { font-size: 110px; }
+            .slogan-text { font-size: 14px; gap: 8px; }
+            .slogan-divider { font-size: 16px; }
+            @keyframes groupMove {
+                0%, 29% { transform: translateY(0) scale(1); }
+                35%, 73% { transform: translateY(60px) scale(0.8); }
+                79%, 100% { transform: translateY(0) scale(1); }
+            }
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col selection:bg-niks-orange selection:text-white">
+
+    <!-- Logo: Đã đổi link sang /home -->
+    <a href="/home" class="fixed top-6 left-6 md:top-10 md:left-10 z-50 animate-fade-up">
+        <img src="niks_512.png" 
+             alt="NIKS Logo" 
+             class="w-16 h-16 md:w-20 md:h-20 rounded-[1.2rem] shadow-lg transform hover:scale-110 transition-transform duration-300 border-2 border-white bg-white"
+             onerror="this.src='https://placehold.co/200x200/041737/f38900?text=NIKS'">
+    </a>
+
+    <!-- Màn hình Hero -->
+    <section id="home-section" class="h-screen w-full relative overflow-hidden">
+        <div class="app-container">
+            <div class="logo-group font-logo">
+                <div class="logo-text">
+                    <span class="char-box char-n delay-1">n</span>
+                    <span class="char-box i-box delay-2">
+                        <span class="dot-wrapper">
+                            <span class="dot"></span>
+                        </span>
+                        <span class="stem">&#305;</span>
+                    </span>
+                    <span class="char-box char-k delay-3">k</span>
+                    <span class="char-box char-s delay-4">s</span>
+                </div>
+                <div class="slogan-wrapper">
+                    <div class="slogan-text char-box delay-5">
+                        <span>SYSTEMS</span>
+                        <span class="slogan-divider">|</span>
+                        <span>SOLUTIONS</span>
+                        <span class="slogan-divider">|</span>
+                        <span>SIMPLICITY</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <a href="#main-content" class="absolute bottom-8 md:bottom-12 left-1/2 -translate-x-1/2 animate-bounce p-3 text-white mix-blend-difference hover:text-niks-orange transition-colors duration-300 z-20 bg-black/10 backdrop-blur-sm rounded-full">
+            <svg class="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+            </svg>
+        </a>
+    </section>
+
+    <!-- Phần nội dung chính -->
+    <main id="main-content" class="flex-grow w-full px-6 sm:px-12 lg:px-24 max-w-7xl mx-auto flex flex-col justify-center min-h-screen py-16 md:py-20 relative z-10">
+        <div class="flex flex-col lg:flex-row gap-8 lg:gap-16 justify-between items-start mb-24">
+            <h1 class="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold leading-[1.1] tracking-tight max-w-2xl text-niks-navy">
+                Đồng hành cùng bạn số hóa tri thức.
+            </h1>
+            <div class="lg:w-5/12 pt-2 lg:pt-4">
+                <p class="text-lg sm:text-xl text-gray-600 leading-relaxed font-medium">
+                    Tôi không chỉ xây dựng công cụ, tôi đồng hành cùng bạn để chuyển hóa những ý tưởng cải tiến thực tế thành hệ thống vận hành bền vững.
+                </p>
+                <div class="w-16 h-1 bg-niks-orange mt-6 rounded-full"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+            <div class="bg-[#f8f9fb] p-8 md:p-12 rounded-[2.5rem] border border-gray-100 hover:shadow-lg transition-shadow duration-300">
+                <h2 class="text-2xl md:text-3xl font-bold mb-6 text-niks-navy tracking-tight">Cải tiến thực tế</h2>
+                <p class="text-gray-600 text-base md:text-lg leading-relaxed font-medium">
+                    Mọi hệ thống đều được xây dựng dựa trên nhu cầu thực tế tại hiện trường. Mình hiện thực hóa các ý tưởng tối ưu hóa quy trình để mang lại hiệu quả ngay lập tức.
+                </p>
+            </div>
+            <div class="bg-niks-navy p-8 md:p-12 rounded-[2.5rem] shadow-xl hover:shadow-2xl transition-shadow duration-300">
+                <h2 class="text-2xl md:text-3xl font-bold mb-6 text-white tracking-tight">Lưu trữ tài nguyên</h2>
+                <p class="text-gray-300 text-base md:text-lg leading-relaxed font-medium">
+                    Thông tin là tài sản. Mình giúp bạn lưu trữ, hệ thống hóa toàn bộ quy trình và tri thức vận hành, đảm bảo nguồn tài nguyên này không bao giờ bị mai một.
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full px-6 py-16 mt-auto text-center relative z-10">
+        <div class="max-w-3xl mx-auto flex flex-col items-center">
+            <p class="text-sm font-bold tracking-[0.2em] text-gray-400 uppercase mb-4">
+                Kết nối để bắt đầu sự bền vững
+            </p>
+            <a href="mailto:hello@niks.page.gd" class="text-3xl sm:text-5xl md:text-6xl font-extrabold text-niks-navy hover:text-niks-orange transition-colors duration-300 tracking-tight">
+                hello@niks.page.gd
+            </a>
+            <div class="flex items-center gap-4 my-12">
+                <span class="w-2.5 h-2.5 rounded-full bg-gray-200"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-niks-orange shadow-sm"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-gray-200"></span>
+            </div>
+            <p class="text-xs font-bold tracking-widest text-gray-400 uppercase">
+                NIKS.PAGE.GD &copy; <script>document.write(new Date().getFullYear())</script> &mdash; ENGINEERING SUSTAINABILITY
+            </p>
+        </div>
+    </footer>
+
+    <!-- Đăng ký Service Worker cho PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker đăng ký thành công với scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker đăng ký thất bại: ', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
