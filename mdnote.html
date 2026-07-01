@@ -1,0 +1,693 @@
+<!--
+* Tên file: index.html
+* Vị trí lưu: Thư mục gốc của project (Root directory trên Github Pages)
+* Chức năng cơ bản:
+* - Quản lý ghi chú cá nhân dạng Markdown (WebApp Niks Note).
+* - Thiết kế chuẩn PWA (Progressive Web App): Có thể cài đặt lên điện thoại qua Chrome.
+* - Giao diện chia 2 Tab: Soạn thảo (Viết & Lưu) và Lịch sử (Tìm kiếm & Quản lý).
+* - Hỗ trợ copy toàn bộ nội dung, mã hóa mật khẩu MD5, chia sẻ qua link (Reader mode).
+* - Lazy Load UI: Chỉ tải tiêu đề, nội dung ẩn để tối ưu hiệu suất.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Niks Note</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Markdown & Purify -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+    <!-- Crypto-JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-tap-highlight-color: transparent; /* Tắt nháy xanh khi bấm trên mobile */
+        } 
+        
+        /* Ẩn thanh cuộn nhưng vẫn cho phép cuộn */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- MARKDOWN STYLES --- */
+        .markdown-content h1 { font-size: 1.5em; font-weight: bold; margin-top: 0.8em; color: #0f172a; line-height: 1.3; }
+        .markdown-content h2 { font-size: 1.3em; font-weight: bold; margin-top: 0.8em; color: #1e293b; }
+        .markdown-content h3 { font-size: 1.1em; font-weight: bold; margin-top: 0.8em; color: #334155; }
+        .markdown-content ul { list-style-type: disc; padding-left: 1.5em; margin: 0.5em 0; }
+        .markdown-content ol { list-style-type: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+        .markdown-content blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; color: #475569; font-style: italic; background: #eff6ff; padding: 0.5rem 1rem; border-radius: 0 0.5rem 0.5rem 0; margin: 0.5em 0;}
+        
+        .markdown-content pre { 
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 2.5rem 1rem 1rem 1rem;
+            border-radius: 0.5rem; 
+            overflow-x: auto; 
+            margin: 1em 0; 
+            position: relative;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85em;
+        }
+        .markdown-content code { 
+            background-color: #e2e8f0;
+            color: #db2777; 
+            padding: 0.1em 0.3em; 
+            border-radius: 0.25rem; 
+            font-family: 'Consolas', 'Monaco', monospace; 
+            font-size: 0.9em;
+        }
+        .markdown-content pre code { background-color: transparent; color: inherit; padding: 0; }
+        .markdown-content a { color: #2563eb; text-decoration: underline; }
+        .markdown-content img { max-width: 100%; border-radius: 0.5rem; margin-top: 1rem; }
+        .markdown-content p { margin-bottom: 0.8em; line-height: 1.6; }
+
+        .copy-code-btn {
+            position: absolute; top: 0.5rem; right: 0.5rem;
+            background-color: #334155; color: #f8fafc;
+            border: none; border-radius: 0.25rem;
+            padding: 0.25rem 0.5rem; font-size: 0.7rem;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .copy-code-btn:hover { background-color: #3b82f6; }
+
+        /* Line Clamp cho text */
+        .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* Bottom Nav Transition */
+        .nav-item.active { color: #3b82f6; }
+        .nav-item.active .nav-icon { stroke: #3b82f6; stroke-width: 2.5; }
+        .nav-item.active .nav-bg { opacity: 1; transform: scale(1); }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen w-screen overflow-hidden flex flex-col text-slate-800">
+
+    <!-- OVERLAY ĐĂNG NHẬP -->
+    <div id="loginOverlay" class="fixed inset-0 bg-slate-50 z-[100] flex flex-col items-center justify-center transition-opacity duration-300">
+        <div id="spinner" class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        
+        <div id="loginForm" class="hidden bg-white p-8 rounded-2xl shadow-xl border border-slate-100 max-w-sm w-full mx-4 text-center">
+            <!-- Logo Niks (Đăng nhập) -->
+            <div class="flex justify-center mb-4">
+                <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
+                    <img src="phttps://phamxuandong.github.io/niks_512.png" alt="Niks Logo" class="w-8 h-8 transform -rotate-3">    
+                </div>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-1">Niks Note</h2>
+            <p class="text-sm text-slate-500 mb-6">Mật khẩu để truy cập không gian riêng.</p>
+            
+            <input type="password" id="passwordInput" placeholder="Nhập mật khẩu..." 
+                class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+            
+            <div class="flex items-center justify-center mb-6">
+                 <input id="rememberMe" type="checkbox" checked class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                 <label for="rememberMe" class="ml-2 block text-sm font-medium text-slate-600">Ghi nhớ tôi</label>
+            </div>
+
+            <button id="loginBtn" class="w-full bg-blue-600 text-white py-3.5 rounded-xl hover:bg-blue-700 font-bold shadow-md shadow-blue-500/30 transition active:scale-[0.98]">
+                Mở Khóa App
+            </button>
+            <p id="loginError" class="text-red-500 text-sm mt-4 font-medium hidden">Sai mật khẩu, thử lại nhé!</p>
+        </div>
+    </div>
+
+    <!-- ===== MAIN APP LAYOUT (Sau khi đăng nhập) ===== -->
+    <div id="mainApp" class="hidden flex-col h-full w-full max-w-[800px] mx-auto bg-white shadow-2xl relative">
+        
+        <!-- HEADER (App Bar) -->
+        <header class="flex-shrink-0 h-16 px-4 bg-white border-b border-slate-100 flex items-center justify-between z-20 relative">
+            <div class="flex items-center gap-2">
+                <!-- Logo Niks (Header) -->
+                <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                </div>
+                <a href='home.html'><h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">Niks Note</h1></a>
+            </div>
+            <button id="logoutBtn" class="text-slate-400 hover:text-red-500 p-2 rounded-full transition bg-slate-50">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            </button>
+        </header>
+
+        <!-- CONTENT AREA (Scrollable) -->
+        <main class="flex-1 overflow-y-auto no-scrollbar relative bg-slate-50/50" id="mainScrollArea">
+            
+            <!-- TABS VIEWS -->
+            
+            <!-- VIEW 1: SOẠN THẢO (EDITOR) -->
+            <div id="viewEditor" class="absolute inset-0 w-full flex flex-col transition-transform duration-300 transform translate-x-0 bg-white">
+                <div class="flex-1 flex flex-col h-full">
+                    <!-- Khu vực nhập liệu -->
+                    <div class="flex-1 flex flex-col p-4 gap-3">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Viết bài mới</span>
+                            <button id="clearEditorBtn" class="text-xs text-slate-400 hover:text-red-500">Xóa trắng</button>
+                        </div>
+                        
+                        <input type="text" id="titleInput" 
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 font-bold text-lg text-slate-800 transition shadow-sm placeholder-slate-400"
+                            placeholder="Nhập tiêu đề...">
+                            
+                        <div class="relative flex-1 flex flex-col border border-slate-200 rounded-xl overflow-hidden shadow-sm focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
+                            <!-- Toggle Mode -->
+                            <div class="absolute top-2 right-2 flex bg-slate-100 rounded-lg p-1 z-10 shadow-inner">
+                                <button id="btnModeWrite" class="px-3 py-1 text-xs font-medium rounded-md bg-white text-blue-600 shadow-sm transition">Viết</button>
+                                <button id="btnModePreview" class="px-3 py-1 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition">Xem trước</button>
+                            </div>
+                            
+                            <!-- Textarea -->
+                            <textarea id="noteInput" 
+                                class="flex-1 w-full p-4 pt-12 bg-slate-50 focus:bg-white focus:outline-none resize-none font-mono text-sm leading-relaxed text-slate-700"
+                                placeholder="Nội dung Markdown...&#10;- Dùng **In đậm**&#10;- Dùng # Tiêu đề"></textarea>
+                                
+                            <!-- Preview Panel (ẩn mặc định) -->
+                            <div id="previewPanel" class="hidden absolute inset-0 bg-white p-4 pt-12 overflow-y-auto no-scrollbar">
+                                <div id="livePreviewContent" class="markdown-content text-sm pb-10"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nút Lưu (Dính phía trên Bottom Nav) -->
+                    <div class="p-4 bg-white border-t border-slate-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                        <button id="addBtn" 
+                            class="w-full bg-blue-600 text-white py-3.5 rounded-xl hover:bg-blue-700 transition font-bold shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2 active:scale-[0.98]">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                            <span>Lưu Ghi Chú</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: LỊCH SỬ (HISTORY) -->
+            <div id="viewHistory" class="absolute inset-0 w-full flex flex-col transition-transform duration-300 transform translate-x-full bg-slate-50/50 overflow-y-auto no-scrollbar">
+                
+                <!-- Thanh Tìm Kiếm (Sticky top) -->
+                <div class="sticky top-0 p-4 bg-slate-50/90 backdrop-blur-md z-10 border-b border-slate-200/50">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" id="searchInput"
+                            class="w-full py-3 pl-10 pr-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm placeholder-slate-400"
+                            placeholder="Tìm tiêu đề hoặc nội dung ghi chú...">
+                    </div>
+                </div>
+
+                <!-- Danh sách bài viết -->
+                <div class="p-4 pb-24"> <!-- Padding bottom để không bị lấp bởi Bottom Nav -->
+                    <div class="flex justify-between items-end mb-4 px-1">
+                        <h3 class="font-bold text-slate-800 text-lg">Kho ghi chú</h3>
+                        <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 bg-slate-200 px-2 py-1 rounded-md">Lazy Load</span>
+                    </div>
+                    
+                    <div id="notesList" class="space-y-4"></div>
+                    
+                    <div class="mt-8 text-center">
+                        <button id="loadMoreBtn" class="hidden text-slate-500 hover:text-blue-600 font-medium text-sm border border-slate-300 bg-white rounded-full px-6 py-2 shadow-sm active:scale-95 transition">
+                            Tải thêm bài cũ ↓
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- BOTTOM NAVIGATION (App-like) -->
+        <nav class="flex-shrink-0 h-[68px] bg-white border-t border-slate-200 flex justify-around items-center px-2 pb-safe shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.05)] z-20 relative">
+            
+            <!-- Tab: Soạn thảo -->
+            <button id="tabEditor" class="nav-item active flex-1 flex flex-col items-center justify-center gap-1 relative py-2 text-slate-400 transition-colors">
+                <div class="nav-bg absolute inset-0 bg-blue-50 rounded-xl opacity-100 scale-100 transition-all duration-300 mx-4"></div>
+                <svg class="nav-icon w-6 h-6 relative z-10 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                <span class="text-[11px] font-semibold relative z-10">Soạn thảo</span>
+            </button>
+
+            <!-- Tab: Lịch sử -->
+            <button id="tabHistory" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 relative py-2 text-slate-400 transition-colors">
+                <div class="nav-bg absolute inset-0 bg-blue-50 rounded-xl opacity-0 scale-50 transition-all duration-300 mx-4"></div>
+                <svg class="nav-icon w-6 h-6 relative z-10 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <span class="text-[11px] font-semibold relative z-10">Lịch sử</span>
+            </button>
+            
+        </nav>
+    </div>
+
+    <!-- ===== GIAO DIỆN READER (Chia sẻ qua Link) ===== -->
+    <div id="readerView" class="hidden w-full max-w-[800px] mx-auto h-screen flex-col bg-white">
+        <header class="flex-shrink-0 h-14 px-4 border-b border-slate-100 flex items-center justify-center bg-slate-50">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg></div>
+                <span class="font-bold text-slate-700 text-sm">Niks Note Shared</span>
+            </div>
+        </header>
+        <main class="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar">
+            <h1 id="readerTitle" class="text-3xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100 hidden"></h1>
+            <div id="readerContent" class="markdown-content text-slate-800"></div>
+            <div class="mt-12 pt-6 border-t border-slate-100 text-center pb-10">
+                <p class="text-sm text-slate-400" id="readerDate"></p>
+                <a href="index.html" class="inline-block mt-4 px-4 py-2 bg-slate-100 text-blue-600 text-sm font-semibold rounded-lg hover:bg-blue-50 transition">Về trang chủ Niks Note</a>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, serverTimestamp, limit, getDoc, updateDoc } 
+               from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // --- PWA GENERATOR (Tạo Manifest & Service Worker ảo để cài đặt) ---
+        function setupPWA() {
+            // Icon Niks SVG Base64
+            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="512" height="512" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="background: linear-gradient(135deg, #3b82f6, #4f46e5); border-radius: 20%;"><path d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>`;
+            const svgBlob = new Blob([svgIcon], {type: 'image/svg+xml'});
+            const iconUrl = URL.createObjectURL(svgBlob);
+
+            const manifestJSON = {
+                "name": "Niks Note",
+                "short_name": "Niks",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#f8fafc",
+                "theme_color": "#2563eb",
+                "description": "App quản lý ghi chú cá nhân",
+                "icons": [{"src": iconUrl, "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifestJSON)], {type: 'application/json'});
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
+            document.head.insertAdjacentHTML('beforeend', `<meta name="theme-color" content="#2563eb">`);
+        }
+        setupPWA();
+
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCgDNxK4iWLIH4RdcRsayxsM31w2Lc-z8Y",
+            authDomain: "nino-8f735.firebaseapp.com",
+            projectId: "nino-8f735",
+            storageBucket: "nino-8f735.firebasestorage.app",
+            messagingSenderId: "383782390686",
+            appId: "1:383782390686:web:9b35ddb9ad27cbb540248f"
+        };
+
+        const ACCESS_PASSWORD_HASH = "ed871d892b75649015d9a8bc0ce17448"; 
+
+        let app, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+        } catch (error) { console.error("Firebase init error:", error); }
+
+        // --- BIẾN TOÀN CỤC ---
+        let editingNoteId = null;
+        const COLLECTION_NAME = "daily_notes";
+        const SESSION_KEY = 'niks_note_auth'; 
+        const DRAFT_TITLE = 'niks_draft_title';
+        const DRAFT_CONTENT = 'niks_draft_content';
+        
+        let currentLimit = 10;
+        let unsubscribe = null;
+        let allNotesData = [];
+
+        marked.use({ breaks: true, gfm: true });
+
+        // DOM Elements
+        const loginOverlay = document.getElementById('loginOverlay');
+        const spinner = document.getElementById('spinner');
+        const loginForm = document.getElementById('loginForm');
+        const mainApp = document.getElementById('mainApp');
+        const readerView = document.getElementById('readerView');
+        
+        // Tabs
+        const tabEditor = document.getElementById('tabEditor');
+        const tabHistory = document.getElementById('tabHistory');
+        const viewEditor = document.getElementById('viewEditor');
+        const viewHistory = document.getElementById('viewHistory');
+        const mainScrollArea = document.getElementById('mainScrollArea');
+
+        // Editor
+        const titleInput = document.getElementById('titleInput');
+        const noteInput = document.getElementById('noteInput');
+        const addBtn = document.getElementById('addBtn');
+        const btnModeWrite = document.getElementById('btnModeWrite');
+        const btnModePreview = document.getElementById('btnModePreview');
+        const previewPanel = document.getElementById('previewPanel');
+        const livePreviewContent = document.getElementById('livePreviewContent');
+        const clearEditorBtn = document.getElementById('clearEditorBtn');
+
+        // History
+        const notesList = document.getElementById('notesList');
+        const searchInput = document.getElementById('searchInput');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+        // --- QUẢN LÝ TABS (NAVIGATION) ---
+        function switchTab(tabName) {
+            mainScrollArea.scrollTop = 0; // Cuộn lên đầu khi chuyển tab
+            if (tabName === 'editor') {
+                tabEditor.classList.add('active');
+                tabHistory.classList.remove('active');
+                viewEditor.style.transform = 'translateX(0)';
+                viewHistory.style.transform = 'translateX(100%)';
+                if(editingNoteId) {
+                    addBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Cập nhật Ghi Chú</span>`;
+                    addBtn.className = "w-full bg-emerald-500 text-white py-3.5 rounded-xl hover:bg-emerald-600 transition font-bold shadow-lg shadow-emerald-500/30 flex justify-center items-center gap-2 active:scale-[0.98]";
+                }
+            } else {
+                tabHistory.classList.add('active');
+                tabEditor.classList.remove('active');
+                viewEditor.style.transform = 'translateX(-100%)';
+                viewHistory.style.transform = 'translateX(0)';
+            }
+        }
+        tabEditor.addEventListener('click', () => switchTab('editor'));
+        tabHistory.addEventListener('click', () => switchTab('history'));
+
+        // --- EDITOR MODES (WRITE/PREVIEW) ---
+        btnModeWrite.addEventListener('click', () => {
+            btnModeWrite.className = "px-3 py-1 text-xs font-medium rounded-md bg-white text-blue-600 shadow-sm transition";
+            btnModePreview.className = "px-3 py-1 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition";
+            noteInput.classList.remove('hidden');
+            previewPanel.classList.add('hidden');
+        });
+
+        btnModePreview.addEventListener('click', () => {
+            btnModePreview.className = "px-3 py-1 text-xs font-medium rounded-md bg-white text-blue-600 shadow-sm transition";
+            btnModeWrite.className = "px-3 py-1 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700 transition";
+            noteInput.classList.add('hidden');
+            previewPanel.classList.remove('hidden');
+            renderPreview();
+        });
+
+        function renderPreview() {
+            const content = noteInput.value;
+            if(!content.trim()) {
+                livePreviewContent.innerHTML = '<p class="text-slate-400 italic text-center mt-10">Chưa có nội dung...</p>';
+                return;
+            }
+            livePreviewContent.innerHTML = DOMPurify.sanitize(marked.parse(content));
+        }
+
+        // --- AUTO SAVE DRAFT ---
+        function saveDraft() {
+            if(!editingNoteId) {
+                localStorage.setItem(DRAFT_TITLE, titleInput.value);
+                localStorage.setItem(DRAFT_CONTENT, noteInput.value);
+            }
+        }
+        titleInput.addEventListener('input', saveDraft);
+        noteInput.addEventListener('input', saveDraft);
+
+        function loadDraft() {
+            if(!editingNoteId) {
+                titleInput.value = localStorage.getItem(DRAFT_TITLE) || '';
+                noteInput.value = localStorage.getItem(DRAFT_CONTENT) || '';
+            }
+        }
+
+        clearEditorBtn.addEventListener('click', () => {
+            if(confirm('Xóa trắng trình soạn thảo?')) resetEditor();
+        });
+
+        // --- AUTH LOGIC ---
+        function checkAccess() {
+            const storedHash = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+            if (storedHash === ACCESS_PASSWORD_HASH) {
+                showMainApp();
+            } else {
+                spinner.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const inputHash = CryptoJS.MD5(document.getElementById('passwordInput').value).toString();
+            if (inputHash === ACCESS_PASSWORD_HASH) {
+                if (document.getElementById('rememberMe').checked) localStorage.setItem(SESSION_KEY, inputHash);
+                else sessionStorage.setItem(SESSION_KEY, inputHash);
+                showMainApp();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem(SESSION_KEY);
+            window.location.reload();
+        });
+
+        function showMainApp() {
+            loginOverlay.style.opacity = '0';
+            setTimeout(() => {
+                loginOverlay.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                mainApp.classList.add('flex');
+                loadNotes(currentLimit);
+                loadDraft();
+            }, 300);
+        }
+
+        // --- XỬ LÝ GHI CHÚ ---
+        addBtn.addEventListener('click', async () => {
+            const titleVal = titleInput.value.trim();
+            const contentVal = noteInput.value.trim();
+            
+            if (!contentVal && !titleVal) {
+                alert("Vui lòng nhập nội dung hoặc tiêu đề!"); return;
+            }
+            
+            const originalText = addBtn.innerHTML;
+            addBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div><span>Đang lưu...</span>`;
+            addBtn.disabled = true;
+
+            try {
+                if (editingNoteId) {
+                    await updateDoc(doc(db, COLLECTION_NAME, editingNoteId), {
+                        title: titleVal, content: contentVal, updatedAt: serverTimestamp() 
+                    });
+                } else {
+                    await addDoc(collection(db, COLLECTION_NAME), {
+                        title: titleVal, content: contentVal, createdAt: serverTimestamp()
+                    });
+                }
+                resetEditor();
+                switchTab('history'); // Chuyển sang lịch sử sau khi lưu
+            } catch (error) { 
+                alert("Lỗi: " + error.message); 
+            } finally {
+                addBtn.disabled = false;
+            }
+        });
+
+        function resetEditor() {
+            editingNoteId = null;
+            titleInput.value = '';
+            noteInput.value = '';
+            localStorage.removeItem(DRAFT_TITLE);
+            localStorage.removeItem(DRAFT_CONTENT);
+            
+            addBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg><span>Lưu Ghi Chú</span>`;
+            addBtn.className = "w-full bg-blue-600 text-white py-3.5 rounded-xl hover:bg-blue-700 transition font-bold shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2 active:scale-[0.98]";
+            btnModeWrite.click();
+        }
+
+        window.enterEditMode = (id) => {
+            const note = allNotesData.find(n => n.id === id);
+            if (!note) return;
+            
+            editingNoteId = id;
+            titleInput.value = note.title || ""; 
+            noteInput.value = note.content || "";
+            
+            switchTab('editor'); // Nhảy sang tab soạn thảo
+        }
+
+        // --- RENDER DANH SÁCH & TÌM KIẾM ---
+        function loadNotes(limitCount) {
+            if (!db) return;
+            if (unsubscribe) unsubscribe();
+
+            const q = query(collection(db, COLLECTION_NAME), orderBy("createdAt", "desc"), limit(limitCount));
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                allNotesData = [];
+                if (snapshot.empty) {
+                    notesList.innerHTML = '<div class="text-center py-10 bg-white rounded-xl border border-dashed border-slate-300"><p class="text-slate-400">Trống trơn. Viết bài mới nhé!</p></div>';
+                    loadMoreBtn.classList.add('hidden');
+                    return;
+                }
+
+                snapshot.forEach((docSnapshot) => {
+                    const data = docSnapshot.data();
+                    data.id = docSnapshot.id;
+                    allNotesData.push(data);
+                });
+                
+                filterAndRender(searchInput.value);
+
+                if (snapshot.size >= limitCount) loadMoreBtn.classList.remove('hidden');
+                else loadMoreBtn.classList.add('hidden');
+            });
+        }
+
+        function filterAndRender(keyword) {
+            const searchTerm = keyword.toLowerCase().trim();
+            notesList.innerHTML = '';
+
+            const filteredNotes = allNotesData.filter(note => {
+                const tMatch = note.title && note.title.toLowerCase().includes(searchTerm);
+                const cMatch = note.content && note.content.toLowerCase().includes(searchTerm);
+                return !searchTerm || tMatch || cMatch;
+            });
+
+            filteredNotes.forEach(note => {
+                const id = note.id;
+                let timeStr = note.createdAt ? new Date(note.createdAt.seconds * 1000).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'}) : "...";
+                let displayTitle = note.title || (note.content ? note.content.split('\n')[0].replace(/[#*`]/g, '').trim() : "Ghi chú không tên");
+
+                const div = document.createElement('div');
+                div.className = "bg-white p-4 rounded-2xl shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border border-slate-100 transition duration-200 relative overflow-hidden"; 
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start gap-3 cursor-pointer group" onclick="toggleNoteContent('${id}')">
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-slate-800 text-base group-hover:text-blue-600 transition line-clamp-2 leading-snug">${displayTitle}</h4>
+                            <span class="text-[11px] font-medium text-slate-400 mt-1.5 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                ${timeStr}
+                            </span>
+                        </div>
+                        <button id="toggle-btn-${id}" class="bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-full transition flex-shrink-0">
+                            <svg id="toggle-icon-${id}" class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <div id="content-container-${id}" class="hidden mt-4 pt-4 border-t border-slate-100">
+                        <div id="content-${id}" class="markdown-content text-slate-700 text-sm break-words"></div>
+                    </div>
+
+                    <div class="flex gap-2 mt-4 pt-3 border-t border-slate-50 overflow-x-auto no-scrollbar">
+                        <button id="copy-btn-${id}" onclick="copyNoteContent('${id}')" class="flex-1 min-w-[70px] flex justify-center items-center gap-1 text-slate-500 bg-slate-50 hover:text-blue-600 hover:bg-blue-50 px-2 py-2 rounded-lg transition text-xs font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m-2-3H10"></path></svg> Copy
+                        </button>
+                        <button onclick="enterEditMode('${id}')" class="flex-1 min-w-[70px] flex justify-center items-center gap-1 text-slate-500 bg-slate-50 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-2 rounded-lg transition text-xs font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Sửa
+                        </button>
+                        <button onclick="shareNote('${id}')" class="flex-1 min-w-[70px] flex justify-center items-center gap-1 text-slate-500 bg-slate-50 hover:text-indigo-600 hover:bg-indigo-50 px-2 py-2 rounded-lg transition text-xs font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg> Share
+                        </button>
+                        <button onclick="deleteNote('${id}')" class="flex-1 min-w-[70px] flex justify-center items-center gap-1 text-slate-400 bg-slate-50 hover:text-red-500 hover:bg-red-50 px-2 py-2 rounded-lg transition text-xs font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Xóa
+                        </button>
+                    </div>
+                `;
+                notesList.appendChild(div);
+            });
+        }
+        searchInput.addEventListener('input', (e) => filterAndRender(e.target.value));
+
+        window.toggleNoteContent = (id) => {
+            const container = document.getElementById(`content-container-${id}`);
+            const contentDiv = document.getElementById(`content-${id}`);
+            const icon = document.getElementById(`toggle-icon-${id}`);
+            const btn = document.getElementById(`toggle-btn-${id}`);
+            const note = allNotesData.find(n => n.id === id);
+            
+            if (container.classList.contains('hidden')) {
+                if (!contentDiv.innerHTML.trim() && note) {
+                    contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(note.content || ""));
+                    enhanceContent(contentDiv);
+                }
+                container.classList.remove('hidden');
+                icon.style.transform = "rotate(180deg)";
+                btn.classList.add('bg-blue-50', 'text-blue-600');
+            } else {
+                container.classList.add('hidden');
+                icon.style.transform = "rotate(0deg)";
+                btn.classList.remove('bg-blue-50', 'text-blue-600');
+            }
+        };
+
+        window.copyNoteContent = (id) => {
+            const note = allNotesData.find(n => n.id === id);
+            let textToCopy = (note.title ? `# ${note.title}\n\n` : "") + (note.content || "");
+            if (textToCopy) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const btn = document.getElementById(`copy-btn-${id}`);
+                    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Đã Copy`;
+                    btn.classList.add('text-emerald-600', 'bg-emerald-50');
+                    setTimeout(() => {
+                        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m-2-3H10"></path></svg> Copy`;
+                        btn.classList.remove('text-emerald-600', 'bg-emerald-50');
+                    }, 2000);
+                });
+            }
+        };
+
+        window.deleteNote = async (id) => {
+            if (confirm('Xóa bài viết này vĩnh viễn?')) {
+                try { await deleteDoc(doc(db, COLLECTION_NAME, id)); } 
+                catch (e) { alert("Lỗi xóa"); }
+            }
+        };
+
+        window.shareNote = (id) => {
+            const shareUrl = `${window.location.href.split('?')[0]}?id=${id}`;
+            navigator.clipboard.writeText(shareUrl).then(() => alert("Đã copy link bài viết!")).catch(() => prompt("Copy link:", shareUrl));
+        };
+
+        loadMoreBtn.addEventListener('click', () => { currentLimit += 10; loadNotes(currentLimit); });
+
+        // --- ENHANCE CONTENT (Code Copy) ---
+        function enhanceContent(containerElement) {
+            containerElement.querySelectorAll('pre').forEach(pre => {
+                if (pre.querySelector('.copy-code-btn')) return;
+                const btn = document.createElement('button');
+                btn.className = 'copy-code-btn'; btn.textContent = 'Copy';
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(pre.querySelector('code').innerText).then(() => {
+                        btn.textContent = 'Done!'; btn.style.backgroundColor = '#10b981';
+                        setTimeout(() => { btn.textContent = 'Copy'; btn.style.backgroundColor = ''; }, 2000);
+                    });
+                };
+                pre.appendChild(btn);
+            });
+        }
+
+        // --- INIT APP (Reader or Login) ---
+        async function init() {
+            const sharedId = new URLSearchParams(window.location.search).get('id');
+            if (sharedId) {
+                try {
+                    const docSnap = await getDoc(doc(db, COLLECTION_NAME, sharedId));
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if(data.title) {
+                            document.getElementById('readerTitle').textContent = data.title;
+                            document.getElementById('readerTitle').classList.remove('hidden');
+                        }
+                        document.getElementById('readerContent').innerHTML = DOMPurify.sanitize(marked.parse(data.content || ""));
+                        enhanceContent(document.getElementById('readerContent'));
+                        if(data.createdAt) document.getElementById('readerDate').textContent = "Cập nhật lúc: " + new Date(data.createdAt.seconds * 1000).toLocaleString('vi-VN');
+                        
+                        loginOverlay.classList.add('hidden');
+                        readerView.classList.remove('hidden');
+                        readerView.classList.add('flex');
+                    } else throw new Error();
+                } catch {
+                    alert("Ghi chú không tồn tại hoặc đã bị xóa!");
+                    window.location.href = window.location.pathname;
+                }
+            } else {
+                checkAccess();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

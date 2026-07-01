@@ -1,0 +1,221 @@
+<!--
+/**
+ * Project: Mobile HTML5 File Saver
+ * File: index.html
+ * Path: /index.html
+ * Chức năng: 
+ * - Trình soạn thảo và lưu file trực tiếp trên trình duyệt (Client-side).
+ * - Hỗ trợ dán (paste) nhanh từ clipboard.
+ * - Chống trình duyệt tự động thêm đuôi .txt bằng application/octet-stream.
+ * - Hỗ trợ chọn nhanh hoặc tự gõ đuôi file bất kỳ (.php, .env, .py,...).
+ */
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trình Lưu File Code (Mobile)</title>
+    <!-- Sử dụng Tailwind CSS cho giao diện Mobile-first -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Tùy chỉnh thanh cuộn cho đẹp hơn */
+        textarea::-webkit-scrollbar { width: 8px; height: 8px; }
+        textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        textarea::-webkit-scrollbar-track { background: #f1f5f9; }
+        
+        /* Animation cho Toast thông báo */
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-animate { animation: slideUp 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen p-4 flex flex-col">
+
+    <div class="max-w-xl w-full mx-auto bg-white rounded-xl shadow-md p-5 flex-grow flex flex-col">
+        
+        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span>📝</span> Code Saver Pro
+        </h2>
+
+        <!-- Khung nhập liệu nội dung -->
+        <div class="relative flex-grow flex flex-col mb-4">
+            <div class="flex justify-between items-center bg-gray-50 border border-b-0 border-gray-300 rounded-t-lg p-2">
+                <span class="text-sm font-medium text-gray-600">Nội dung file:</span>
+                <div class="flex gap-2">
+                    <button onclick="clearText()" class="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-md active:bg-red-200">Xóa trắng</button>
+                    <button onclick="pasteFromClipboard()" class="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-md active:bg-blue-200 font-bold flex items-center gap-1">
+                        📋 Dán Text
+                    </button>
+                </div>
+            </div>
+            
+            <textarea id="fileContent" 
+                class="flex-grow w-full border border-gray-300 rounded-b-lg p-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" 
+                placeholder="Dán mã PHP, HTML, Python... hoặc văn bản vào đây...&#10;Hỗ trợ phím Tab để thụt lề."
+                style="min-height: 250px;"></textarea>
+        </div>
+
+        <!-- Khu vực đặt tên và chọn đuôi file -->
+        <div class="mb-6 space-y-3">
+            <label class="text-sm font-medium text-gray-600 block">Tên & Định dạng file:</label>
+            
+            <div class="flex flex-col sm:flex-row gap-2">
+                <!-- Tên file -->
+                <input type="text" id="fileName" value="index" placeholder="Tên file (vd: main)" 
+                    class="flex-grow border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                
+                <!-- Dropdown chọn đuôi -->
+                <div class="flex gap-2">
+                    <select id="fileExt" onchange="handleExtChange()" 
+                        class="w-full sm:w-auto border border-gray-300 rounded-lg p-3 text-base bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value=".php">.php (PHP)</option>
+                        <option value=".html">.html (Web)</option>
+                        <option value=".js">.js (JavaScript)</option>
+                        <option value=".json">.json (Dữ liệu)</option>
+                        <option value=".py">.py (Python)</option>
+                        <option value=".txt">.txt (Văn bản)</option>
+                        <option value=".sql">.sql (Database)</option>
+                        <option value="custom" class="font-bold text-blue-600">Khác... (Tự gõ)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Ô nhập đuôi file tùy chỉnh (Ẩn mặc định) -->
+            <div id="customExtWrapper" class="hidden flex gap-2 items-center bg-blue-50 p-2 rounded-lg border border-blue-200">
+                <span class="text-gray-500 font-bold pl-2">.</span>
+                <input type="text" id="customExt" placeholder="ví dụ: env, cpp, vue" 
+                    class="flex-grow bg-transparent text-base focus:outline-none font-mono">
+                <button onclick="cancelCustomExt()" class="text-gray-400 hover:text-red-500 px-2 font-bold">✕</button>
+            </div>
+        </div>
+
+        <!-- Nút Lưu (To, dễ bấm trên mobile) -->
+        <button onclick="saveFile()" 
+            class="w-full bg-green-600 active:bg-green-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg transform transition active:scale-95 flex justify-center items-center gap-2">
+            <span>💾</span> TẢI XUỐNG FILE
+        </button>
+
+    </div>
+
+    <!-- Thông báo nổi (Toast) -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full text-sm font-medium shadow-2xl hidden z-50 whitespace-nowrap">
+        Thông báo
+    </div>
+
+    <script>
+        const contentEl = document.getElementById('fileContent');
+        const extSelect = document.getElementById('fileExt');
+        const customExtWrapper = document.getElementById('customExtWrapper');
+        const customExtInput = document.getElementById('customExt');
+
+        // Hàm xử lý hiển thị ô nhập đuôi tự do
+        function handleExtChange() {
+            if (extSelect.value === 'custom') {
+                customExtWrapper.classList.remove('hidden');
+                customExtWrapper.classList.add('flex');
+                customExtInput.focus();
+            } else {
+                customExtWrapper.classList.add('hidden');
+                customExtWrapper.classList.remove('flex');
+            }
+        }
+
+        // Tắt ô nhập đuôi tự do
+        function cancelCustomExt() {
+            extSelect.value = '.php'; // Trả về mặc định
+            handleExtChange();
+        }
+
+        // Xử lý dán Clipboard với API hiện đại
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    contentEl.value = text;
+                    showToast('✅ Đã dán nội dung thành công!');
+                } else {
+                    showToast('⚠️ Bộ nhớ tạm đang trống!');
+                }
+            } catch (err) {
+                showToast('❌ Lỗi: Trình duyệt chưa cấp quyền dán!');
+            }
+        }
+
+        function clearText() {
+            contentEl.value = '';
+            contentEl.focus();
+            showToast('🗑 Đã xóa văn bản');
+        }
+
+        // Hỗ trợ phím Tab trong Textarea (cho người dùng dùng bàn phím rời)
+        contentEl.addEventListener('keydown', function(e) {
+            if (e.key == 'Tab') {
+                e.preventDefault();
+                var start = this.selectionStart;
+                var end = this.selectionEnd;
+                // Thêm 4 khoảng trắng
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+            }
+        });
+
+        // Hàm Lưu File - ĐÃ SỬA LỖI .TXT
+        function saveFile() {
+            const content = contentEl.value;
+            let fileName = document.getElementById('fileName').value.trim();
+            if (!fileName) fileName = 'untitled';
+
+            // Xác định đuôi file
+            let ext = extSelect.value;
+            if (ext === 'custom') {
+                ext = customExtInput.value.trim();
+                // Tự động thêm dấu chấm nếu người dùng quên gõ
+                if (ext && !ext.startsWith('.')) ext = '.' + ext;
+                if (!ext) ext = '.txt'; // Fallback nếu bỏ trống
+            }
+
+            const fullFileName = fileName + ext;
+
+            // BÍ QUYẾT SỬA LỖI: Sử dụng 'application/octet-stream'
+            // Điều này báo với trình duyệt đây là file nhị phân tĩnh, nó sẽ không tự suy luận định dạng
+            // và bắt buộc phải lưu với cái tên trong thuộc tính 'download'.
+            const blob = new Blob([content], { type: 'application/octet-stream' });
+            const fileUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = fileUrl;
+            a.download = fullFileName;
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            // Dọn dẹp
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(fileUrl);
+            }, 100);
+
+            showToast(`✅ Đã lưu: ${fullFileName}`);
+        }
+
+        // Hàm hiển thị thông báo đẹp mắt (thay thế cho alert)
+        let toastTimeout;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('toast-animate');
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('toast-animate');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
