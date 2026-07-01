@@ -1,0 +1,51 @@
+{
+  "name": "NIKS Systems & Solutions",
+  "short_name": "NIKS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#041737",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "niks_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "niks_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+
+**2. Tạo file `sw.js` (Service Worker)**
+File này giúp App chạy mượt hơn, có thể hoạt động offline và là điều kiện bắt buộc của PWA. Tạo file mới tên là `sw.js` và dán mã này vào:
+```javascript
+// Cache version
+const CACHE_NAME = 'niks-app-v1';
+
+// Tự động cài đặt và kích hoạt service worker
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
+});
+
+// Chặn các request để hoạt động mượt mà (Network first strategy)
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        fetch(event.request).catch(() => {
+            return caches.match(event.request);
+        })
+    );
+});
+
+**Sau khi bạn commit và đẩy (push) 3 file này (`index.html`, `manifest.json`, `sw.js`) lên GitHub Pages:**
+* Mở trình duyệt Safari (iOS) hoặc Chrome (Android).
+* Truy cập `phamxuandong.github.io`.
+* Trên **Android**, một thanh thông báo "Thêm vào màn hình chính" (Add to Home screen) sẽ tự động hiện lên.
+* Trên **iOS (iPhone/iPad)**, người dùng ấn vào nút Share (Chia sẻ) -> Chọn "Add to Home Screen" (Thêm vào MH chính). Trang web sẽ hiển thị full màn hình y hệt một App độc lập!
