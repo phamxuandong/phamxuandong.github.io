@@ -25,10 +25,10 @@
         /* Tùy chỉnh hiệu ứng khi chạm/click trên mobile để có cảm giác phản hồi tốt hơn */
         .app-card {
             transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
-            -webkit-tap-highlight-color: transparent; /* Loại bỏ viền xanh mặc định trên điện thoại khi chạm */
+            -webkit-tap-highlight-color: transparent;
         }
         .app-card:active {
-            transform: scale(0.96); /* Thu nhỏ rõ hơn một chút để tạo cảm giác bấm */
+            transform: scale(0.96);
         }
         /* Ẩn thanh cuộn nhưng vẫn cuộn được (tùy chọn) */
         ::-webkit-scrollbar {
@@ -160,13 +160,23 @@
                 </div>
             </a>
 
-            <!-- Ứng dụng Mới: Lịch Âm -->
+            <!-- Mẫu Ứng dụng 9 -->
             <a href="amlich.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-yellow-200" data-title="Âm lịch xem ngày tháng lunar calendar">
                 <div class="flex items-center gap-4">
                     <div class="bg-yellow-100 text-yellow-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
                         <i class="ph ph-moon-stars text-2xl"></i>
                     </div>
                     <h3 class="font-bold text-slate-800 text-lg">Lịch Âm</h3>
+                </div>
+            </a>
+
+            <!-- Ứng dụng Mới: Vẽ sơ đồ Flowchart -->
+            <a href="fchart.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-cyan-200" data-title="Vẽ sơ đồ flow chart flowchart chia sẻ">
+                <div class="flex items-center gap-4">
+                    <div class="bg-cyan-100 text-cyan-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-tree-structure text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Vẽ Sơ đồ (Flowchart)</h3>
                 </div>
             </a>
 
