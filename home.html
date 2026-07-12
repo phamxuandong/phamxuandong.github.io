@@ -8,219 +8,228 @@
  * - Sử dụng Tailwind CSS cho giao diện và Phosphor Icons cho biểu tượng.
  -->
 
- <!DOCTYPE html>
- <html lang="vi">
- <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>Danh mục Ứng dụng của tôi</title>
-     
-     <!-- Tailwind CSS để tạo giao diện nhanh và responsive -->
-     <script src="https://cdn.tailwindcss.com"></script>
-     
-     <!-- Phosphor Icons để dùng biểu tượng -->
-     <script src="https://unpkg.com/@phosphor-icons/web"></script>
- 
-     <style>
-         /* Tùy chỉnh hiệu ứng khi chạm/click trên mobile để có cảm giác phản hồi tốt hơn */
-         .app-card {
-             transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
-         }
-         .app-card:active {
-             transform: scale(0.98);
-         }
-         /* Ẩn thanh cuộn nhưng vẫn cuộn được (tùy chọn) */
-         ::-webkit-scrollbar {
-             width: 8px;
-         }
-         ::-webkit-scrollbar-track {
-             background: #f1f5f9; 
-         }
-         ::-webkit-scrollbar-thumb {
-             background: #cbd5e1; 
-             border-radius: 4px;
-         }
-         ::-webkit-scrollbar-thumb:hover {
-             background: #94a3b8; 
-         }
-     </style>
- </head>
- <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
- 
-     <!-- Header (Phần đầu trang) -->
-     <header class="bg-blue-600 text-white shadow-md sticky top-0 z-10">
-         <div class="max-w-4xl mx-auto px-4 py-5 sm:px-6 flex flex-col gap-4">
-             <div class="flex items-center gap-3">
-                 <i class="ph ph-rocket-launch text-3xl"></i>
-                 <h1 class="text-2xl font-bold tracking-tight">My Apps</h1>
-             </div>
-             
-             <!-- Thanh tìm kiếm -->
-             <div class="relative">
-                 <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-lg"></i>
-                 <input 
-                     type="text" 
-                     id="searchInput" 
-                     placeholder="Tìm kiếm ứng dụng..." 
-                     class="w-full bg-white text-slate-900 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm transition-all"
-                 >
-             </div>
-         </div>
-     </header>
- 
-     <!-- Main Content (Nội dung chính) -->
-     <main class="flex-grow max-w-4xl mx-auto w-full px-4 py-6 sm:px-6">
-         
-         <div class="mb-4 flex justify-between items-end">
-             <h2 class="text-lg font-semibold text-slate-700">Tất cả ứng dụng</h2>
-             <span id="appCount" class="text-sm text-slate-500 bg-slate-200 px-2 py-1 rounded-md font-medium">0</span>
-         </div>
- 
-         <!-- Lưới chứa các ứng dụng (Grid) -->
-         <!-- Chú ý: Đổi tên file trong thuộc tính href="tên-file.html" để link tới app của bạn -->
-         <div id="appList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-             
-             <!-- Mẫu Ứng dụng 1 -->
-             <a href="https://niks.page.gd/gitim/" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-200" data-title="Máy tính Calculator">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-blue-100 text-blue-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-file-image text-xl"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Tải ảnh lên github</h3>
-                 </div>
-             </a>
- 
-             <!-- Mẫu Ứng dụng 2 -->
-             <a href="mdnote.html" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-green-200" data-title="Ghi chú Notes Todo">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-green-100 text-green-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-note-pencil text-xl"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Ghi Chú (Chia sẻ)</h3>
-                 </div>
-             </a>
- 
-             <!-- Mẫu Ứng dụng 3 -->
-             <a href="qr.html" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-orange-200" data-title="Thời tiết Weather">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-orange-100 text-orange-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-qr-code text-xl"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Tạo QRCODE</h3>
-                 </div>
-             </a>
- 
-             <!-- Mẫu Ứng dụng 4 -->
-             <a href="img.html" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-purple-200" data-title="Đồng hồ bấm giờ Pomodoro Timer">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-purple-100 text-purple-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-pencil-circle text-xl"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Chỉnh ảnh</h3>
-                 </div>
-             </a>
- 
-              <!-- Mẫu Ứng dụng 5 -->
-              <a href="md.html" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-red-200" data-title="Trò chơi Rắn săn mồi Snake Game">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-red-100 text-red-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-file-md text-xl"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Soạn Mark Down</h3>
-                 </div>
-             </a>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh mục Ứng dụng của tôi</title>
+    
+    <!-- Tailwind CSS để tạo giao diện nhanh và responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons để dùng biểu tượng -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-          <!-- Mẫu Ứng dụng 5 -->
-              <a href="https://niks.page.gd/note/index.php" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-red-200" data-title="Trò chơi Rắn săn mồi Snake Game">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-red-100 text-red-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-file-md text-xl"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Ghi chú</h3>
-                 </div>
-             </a>
+    <style>
+        /* Tùy chỉnh hiệu ứng khi chạm/click trên mobile để có cảm giác phản hồi tốt hơn */
+        .app-card {
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            -webkit-tap-highlight-color: transparent; /* Loại bỏ viền xanh mặc định trên điện thoại khi chạm */
+        }
+        .app-card:active {
+            transform: scale(0.96); /* Thu nhỏ rõ hơn một chút để tạo cảm giác bấm */
+        }
+        /* Ẩn thanh cuộn nhưng vẫn cuộn được (tùy chọn) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
 
-          <!-- Mẫu Ứng dụng 6 -->
-              <a href="save.html" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-red-200" data-title="Trò chơi Rắn săn mồi Snake Game">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-red-100 text-red-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-file-arrow-down"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Lưu file</h3>
-                 </div>
-             </a>
+    <!-- Header (Phần đầu trang) -->
+    <header class="bg-blue-600 text-white shadow-md sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto px-4 py-5 sm:px-6 flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+                <i class="ph ph-rocket-launch text-3xl"></i>
+                <h1 class="text-2xl font-bold tracking-tight">My Apps</h1>
+            </div>
+            
+            <!-- Thanh tìm kiếm -->
+            <div class="relative">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-lg"></i>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Tìm kiếm ứng dụng..." 
+                    class="w-full bg-white text-slate-900 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm transition-all text-base"
+                >
+            </div>
+        </div>
+    </header>
 
-           <!-- Mẫu Ứng dụng 6 -->
-              <a href="removebg.html" class="app-card block bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-red-200" data-title="Trò chơi Rắn săn mồi Snake Game">
-                 <div class="flex items-center gap-3">
-                     <div class="bg-red-100 text-red-600 w-10 h-10 flex items-center justify-center rounded flex-shrink-0">
-                         <i class="ph ph-file-arrow-down"></i>
-                     </div>
-                     <h3 class="font-bold text-slate-800 text-lg">Xóa nền ảnh</h3>
-                 </div>
-             </a>
- 
-         </div>
- 
-         <!-- Thông báo khi không tìm thấy kết quả -->
-         <div id="noResult" class="hidden text-center py-10">
-             <i class="ph ph-magnifying-glass-minus text-4xl text-slate-300 mb-2"></i>
-             <p class="text-slate-500">Không tìm thấy ứng dụng nào phù hợp.</p>
-         </div>
- 
-     </main>
- 
-     <!-- Footer -->
-     <footer class="bg-white border-t border-slate-200 mt-auto py-6 text-center">
-         <p class="text-slate-500 text-sm">
-             &copy; <script>document.write(new Date().getFullYear())</script> My GitHub Pages.
-         </p>
-     </footer>
- 
-     <!-- Script cho chức năng tìm kiếm -->
-     <script>
-         document.addEventListener('DOMContentLoaded', () => {
-             const searchInput = document.getElementById('searchInput');
-             const appCards = document.querySelectorAll('.app-card');
-             const noResultMsg = document.getElementById('noResult');
-             const appCountDisplay = document.getElementById('appCount');
-             
-             // Cập nhật số lượng ban đầu
-             updateCount();
- 
-             // Lắng nghe sự kiện gõ phím vào ô tìm kiếm
-             searchInput.addEventListener('input', (e) => {
-                 const searchTerm = e.target.value.toLowerCase().trim();
-                 let visibleCount = 0;
- 
-                 appCards.forEach(card => {
-                     // Lấy dữ liệu tên từ thuộc tính data-title hoặc text content
-                     const title = card.getAttribute('data-title').toLowerCase();
-                     
-                     if (title.includes(searchTerm)) {
-                         card.style.display = 'block';
-                         visibleCount++;
-                     } else {
-                         card.style.display = 'none';
-                     }
-                 });
- 
-                 // Hiển thị/ẩn thông báo "không tìm thấy"
-                 if (visibleCount === 0) {
-                     noResultMsg.classList.remove('hidden');
-                 } else {
-                     noResultMsg.classList.add('hidden');
-                 }
- 
-                 updateCount(visibleCount);
-             });
- 
-             function updateCount(count = null) {
-                 const finalCount = count !== null ? count : appCards.length;
-                 appCountDisplay.textContent = finalCount + " ứng dụng";
-             }
-         });
-     </script>
- </body>
- </html>
+    <!-- Main Content (Nội dung chính) -->
+    <main class="flex-grow max-w-4xl mx-auto w-full px-4 py-6 sm:px-6">
+        
+        <div class="mb-4 flex justify-between items-end">
+            <h2 class="text-lg font-semibold text-slate-700">Tất cả ứng dụng</h2>
+            <span id="appCount" class="text-sm text-slate-500 bg-slate-200 px-2 py-1 rounded-md font-medium">0</span>
+        </div>
 
+        <!-- Lưới chứa các ứng dụng (Grid) -->
+        <div id="appList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+            
+            <!-- Mẫu Ứng dụng 1 -->
+            <a href="https://niks.page.gd/gitim/" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-200" data-title="Tải ảnh lên github upload image">
+                <div class="flex items-center gap-4">
+                    <div class="bg-blue-100 text-blue-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-file-image text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Tải ảnh lên github</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 2 -->
+            <a href="mdnote.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-green-200" data-title="Ghi chú Notes Todo chia sẻ markdown">
+                <div class="flex items-center gap-4">
+                    <div class="bg-green-100 text-green-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-note-pencil text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Ghi Chú (Chia sẻ)</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 3 -->
+            <a href="qr.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-orange-200" data-title="Tạo mã QR code generator">
+                <div class="flex items-center gap-4">
+                    <div class="bg-orange-100 text-orange-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-qr-code text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Tạo QRCODE</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 4 -->
+            <a href="img.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-purple-200" data-title="Chỉnh sửa ảnh edit photo image">
+                <div class="flex items-center gap-4">
+                    <div class="bg-purple-100 text-purple-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-pencil-circle text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Chỉnh ảnh</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 5 -->
+            <a href="md.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-red-200" data-title="Soạn thảo Mark Down editor text">
+                <div class="flex items-center gap-4">
+                    <div class="bg-red-100 text-red-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-file-md text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Soạn Mark Down</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 6 -->
+            <a href="https://niks.page.gd/note/index.php" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-pink-200" data-title="Ghi chú cá nhân Note">
+                <div class="flex items-center gap-4">
+                    <div class="bg-pink-100 text-pink-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-notepad text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Ghi chú Web</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 7 -->
+            <a href="save.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-teal-200" data-title="Lưu file save download">
+                <div class="flex items-center gap-4">
+                    <div class="bg-teal-100 text-teal-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-file-arrow-down text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Lưu file</h3>
+                </div>
+            </a>
+
+            <!-- Mẫu Ứng dụng 8 -->
+            <a href="removebg.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-indigo-200" data-title="Xóa nền ảnh remove background bg">
+                <div class="flex items-center gap-4">
+                    <div class="bg-indigo-100 text-indigo-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-eraser text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Xóa nền ảnh</h3>
+                </div>
+            </a>
+
+            <!-- Ứng dụng Mới: Lịch Âm -->
+            <a href="amlich.html" class="app-card block bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-yellow-200" data-title="Âm lịch xem ngày tháng lunar calendar">
+                <div class="flex items-center gap-4">
+                    <div class="bg-yellow-100 text-yellow-600 w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0">
+                        <i class="ph ph-moon-stars text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Lịch Âm</h3>
+                </div>
+            </a>
+
+        </div>
+
+        <!-- Thông báo khi không tìm thấy kết quả -->
+        <div id="noResult" class="hidden text-center py-10">
+            <i class="ph ph-magnifying-glass-minus text-4xl text-slate-300 mb-2"></i>
+            <p class="text-slate-500">Không tìm thấy ứng dụng nào phù hợp.</p>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto py-6 text-center">
+        <p class="text-slate-500 text-sm">
+            &copy; <script>document.write(new Date().getFullYear())</script> My GitHub Pages.
+        </p>
+    </footer>
+
+    <!-- Script cho chức năng tìm kiếm -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            const appCards = document.querySelectorAll('.app-card');
+            const noResultMsg = document.getElementById('noResult');
+            const appCountDisplay = document.getElementById('appCount');
+            
+            // Cập nhật số lượng ban đầu
+            updateCount();
+
+            // Lắng nghe sự kiện gõ phím vào ô tìm kiếm
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                let visibleCount = 0;
+
+                appCards.forEach(card => {
+                    // Lấy dữ liệu tên từ thuộc tính data-title
+                    const title = card.getAttribute('data-title').toLowerCase();
+                    
+                    if (title.includes(searchTerm)) {
+                        card.style.display = 'block';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Hiển thị/ẩn thông báo "không tìm thấy"
+                if (visibleCount === 0) {
+                    noResultMsg.classList.remove('hidden');
+                } else {
+                    noResultMsg.classList.add('hidden');
+                }
+
+                updateCount(visibleCount);
+            });
+
+            function updateCount(count = null) {
+                const finalCount = count !== null ? count : appCards.length;
+                appCountDisplay.textContent = finalCount + " ứng dụng";
+            }
+        });
+    </script>
+</body>
+</html>
