@@ -1,0 +1,1164 @@
+<!--
+* Tên file: index.html
+* Vị trí lưu: / (Thư mục gốc GitHub Pages)
+* Chức năng: Flowchart & Document Editor (Tích hợp Firebase Firestore)
+* Fix: Gắn toàn bộ hàm UI vào đối tượng window để giải quyết lỗi Module Scope.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Thiết Kế Hệ Thống & Tài Liệu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Data lưu trữ -->
+    <script id="saved-data" type="application/json">{}</script>
+
+    <style>
+        .shape-decision { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+        .canvas-bg {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .node-link-hover:hover { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5); cursor: crosshair !important; }
+        .node-selected > div:first-child { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.8); }
+        .node-selected-text { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.8); }
+        .btn-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+        .rich-editor { min-height: 100px; cursor: text; word-wrap: break-word; white-space: normal; overflow-x: auto; padding-bottom: 4px; }
+        .viewer-mode .rich-editor { cursor: default; } 
+        .rich-editor:empty:before { content: "Nhấn vào đây để gõ nội dung tài liệu, hoặc Ctrl+V để dán Bảng Excel / Hình ảnh..."; color: #9ca3af; pointer-events: none; display: block; }
+        .rich-editor:focus { outline: none; }
+        .rich-editor table { min-width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+        .rich-editor td, .rich-editor th { border: 1px solid #d1d5db; padding: 8px; background-color: #ffffff; word-break: break-word; min-width: 80px; }
+        .rich-editor tr:nth-child(even) td { background-color: #f8fafc; }
+        .rich-editor img { max-width: 100% !important; height: auto !important; object-fit: contain; border-radius: 4px; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .rich-editor p { margin: 0 0 0.5rem 0; line-height: 1.6; }
+    </style>
+</head>
+<body class="w-full h-screen overflow-hidden flex flex-col font-sans bg-gray-50 text-slate-800">
+
+    <!-- TOAST -->
+    <div id="toast-message" class="hidden fixed top-20 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-2 font-medium transition-opacity">
+        <i class="ph ph-check-circle text-xl"></i> <span id="toast-text">Lưu thành công!</span>
+    </div>
+
+    <!-- MODAL TÌM KIẾM -->
+    <div id="search-modal" class="hidden fixed inset-0 bg-gray-900/60 z-[100] flex items-center justify-center" onclick="window.closeSearchModal()">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]" onclick="event.stopPropagation()">
+            <div class="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                <h2 class="font-bold text-lg text-gray-800 flex items-center gap-2"><i class="ph ph-folder-open text-blue-600"></i> Thư viện sơ đồ</h2>
+                <button onclick="window.closeSearchModal()" class="text-gray-400 hover:text-red-500"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-4 border-b border-gray-200">
+                <div class="relative">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                    <input type="text" id="search-input" onkeyup="window.searchFlowcharts()" class="w-full border border-gray-300 rounded-md py-2 pl-10 pr-4 outline-none focus:border-blue-500" placeholder="Gõ tên sơ đồ để lọc...">
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <div id="search-loading" class="text-center text-gray-500 hidden py-4"><i class="ph ph-spinner animate-spin text-2xl"></i> Đang tải...</div>
+                <ul id="search-results" class="space-y-2"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="link-mode-toast" class="hidden fixed top-24 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-2 font-medium">
+        <i class="ph ph-link text-xl animate-pulse"></i> Vui lòng click vào một khối đích để nối...
+        <button onclick="window.cancelLinkMode()" class="ml-4 bg-blue-800 hover:bg-blue-900 w-6 h-6 flex items-center justify-center rounded-full transition"><i class="ph ph-x"></i></button>
+    </div>
+
+    <!-- Quick Menu -->
+    <div id="quick-menu" class="hidden absolute bg-white border border-gray-200 shadow-xl rounded-lg py-2 w-56 z-50 text-sm">
+        <div class="px-3 py-1 text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Thêm khối mới</div>
+        <button onclick="window.executeQuickAdd('process')" class="w-full text-left px-4 py-2 hover:bg-blue-50 text-blue-700 flex items-center gap-2"><i class="ph ph-square text-lg"></i> Xử lý</button>
+        <button onclick="window.executeQuickAdd('decision')" class="w-full text-left px-4 py-2 hover:bg-yellow-50 text-yellow-700 flex items-center gap-2"><i class="ph ph-diamond text-lg"></i> Điều kiện</button>
+        <button onclick="window.executeQuickAdd('end')" class="w-full text-left px-4 py-2 hover:bg-red-50 text-red-700 flex items-center gap-2"><i class="ph ph-stop-circle text-lg"></i> Kết thúc</button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button onclick="window.executeQuickAdd('link')" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-800 flex items-center gap-2 font-semibold"><i class="ph ph-link text-lg"></i> Nối với khối có sẵn...</button>
+    </div>
+
+    <!-- HEADER -->
+    <header class="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 shrink-0 shadow-sm z-20 relative" id="main-header">
+        <div class="flex items-center gap-3" id="header-left-tools">
+            <button id="btn-toggle-tools" onclick="window.toggleLeftPanel()" class="px-3 py-1.5 text-sm font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition flex items-center gap-2 border border-gray-200">
+                <i class="ph ph-list text-lg"></i> <span class="hidden sm:inline">Công cụ</span>
+            </button>
+            <div class="flex items-center gap-2 ml-2">
+                <i class="ph ph-tree-structure text-2xl text-blue-600"></i>
+                <input type="text" id="doc-title" value="Thiết Kế Hệ Thống" class="font-bold text-lg text-slate-700 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 w-40 sm:w-64 transition-colors" placeholder="Nhập tiêu đề...">
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-3" id="header-right-tools">
+            <button onclick="window.openSearchModal()" class="px-3 py-1.5 text-sm font-bold rounded bg-gray-800 text-white transition flex items-center gap-1 hover:bg-gray-900 shadow-sm" title="Mở thư viện">
+                <i class="ph ph-folder-open text-lg"></i> <span class="hidden xl:inline">Thư viện</span>
+            </button>
+            
+            <button onclick="window.saveToServer()" class="px-3 py-1.5 text-sm font-bold rounded bg-blue-600 text-white transition flex items-center gap-1 hover:bg-blue-700 shadow-sm" id="btn-save-db">
+                <i class="ph ph-cloud-arrow-up text-lg"></i> <span class="hidden xl:inline">Lưu DB</span>
+            </button>
+
+            <button onclick="window.copyShareLink()" class="px-3 py-1.5 text-sm font-bold rounded bg-green-500 text-white transition flex items-center gap-1 hover:bg-green-600 shadow-sm">
+                <i class="ph ph-link-simple text-lg"></i> <span class="hidden sm:inline">Copy Link Review</span>
+            </button>
+            
+            <div class="hidden lg:block w-px h-6 bg-gray-300 mx-1"></div>
+
+            <button onclick="window.exportHTMLFile()" class="px-3 py-1.5 text-sm rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition flex items-center gap-1 border border-gray-200" title="Tải Backup">
+                <i class="ph ph-download-simple text-lg"></i>
+            </button>
+            <button onclick="window.clearCanvas()" class="px-3 py-1.5 text-sm rounded hover:bg-red-50 text-red-600 transition flex items-center gap-1 border border-red-200" title="Làm lại">
+                <i class="ph ph-trash text-lg"></i>
+            </button>
+            <button onclick="window.toggleRightPanel()" id="btn-toggle-docs" class="px-3 py-1.5 text-sm font-semibold rounded bg-blue-50 text-blue-700 transition flex items-center gap-2 border border-blue-200 hover:bg-blue-100 ml-1">
+                <i class="ph ph-sidebar-simple text-lg"></i> <span class="hidden sm:inline">Tài liệu</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- CỘT TRÁI -->
+        <aside id="sidebar-left" class="w-64 bg-white border-r border-gray-200 flex flex-col z-10 shadow-sm overflow-y-auto shrink-0 transition-all duration-300">
+            <div id="properties-panel" class="hidden p-4 border-b border-gray-200 bg-blue-50/40">
+                <h2 class="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-3">Thuộc tính đã chọn</h2>
+                <div id="prop-node-group" class="hidden flex-col gap-3">
+                    <div>
+                        <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Nội dung (Text)</label>
+                        <textarea id="prop-node-text" class="w-full text-sm border border-gray-300 rounded p-2 focus:border-blue-500 outline-none resize-none" rows="2"></textarea>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Rộng (W)</label>
+                            <input type="number" id="prop-node-width" class="w-full text-sm border border-gray-300 rounded p-1.5 focus:border-blue-500 outline-none bg-white" min="20">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Cao (H)</label>
+                            <input type="number" id="prop-node-height" class="w-full text-sm border border-gray-300 rounded p-1.5 focus:border-blue-500 outline-none bg-white" min="20">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Loại khối</label>
+                        <select id="prop-node-type" class="w-full text-sm border border-gray-300 rounded p-1.5 focus:border-blue-500 outline-none bg-white">
+                            <option value="start">Bắt đầu</option>
+                            <option value="process">Xử lý</option>
+                            <option value="decision">Điều kiện</option>
+                            <option value="end">Kết thúc</option>
+                            <option value="text">Nhãn dán (Label)</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Màu nền</label>
+                            <input type="color" id="prop-node-bg" class="w-full h-8 p-0 border border-gray-300 rounded cursor-pointer bg-white mb-1">
+                            <div class="grid grid-cols-5 gap-1" id="palette-node-bg"></div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Màu chữ</label>
+                            <input type="color" id="prop-node-color" class="w-full h-8 p-0 border border-gray-300 rounded cursor-pointer bg-white mb-1">
+                            <div class="grid grid-cols-5 gap-1" id="palette-node-text"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="prop-link-group" class="hidden flex-col gap-3">
+                    <div>
+                        <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Kiểu đường nối</label>
+                        <select id="prop-link-style" class="w-full text-sm border border-gray-300 rounded p-1.5 focus:border-blue-500 outline-none bg-white">
+                            <option value="curve">Mềm (Curve)</option>
+                            <option value="orthogonal">Góc vuông</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Màu đường nối</label>
+                        <input type="color" id="prop-link-color" class="w-full h-8 p-0 border border-gray-300 rounded cursor-pointer bg-white mb-1">
+                        <div class="grid grid-cols-5 gap-1" id="palette-link-color"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-b border-gray-200 bg-purple-50/30">
+                <h2 class="text-[11px] font-bold text-purple-600 uppercase tracking-wider mb-2">Thao tác thông minh</h2>
+                <button onclick="window.insertNodeBetween()" id="btn-insert-between" class="w-full btn-disabled py-2 border border-purple-300 bg-white text-purple-700 rounded text-[13px] font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition shadow-sm">
+                    <i class="ph ph-arrows-split text-lg"></i> Chèn khối vào giữa
+                </button>
+            </div>
+
+            <div class="p-4 border-b border-gray-200">
+                <h2 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Căn chỉnh (Chọn 2+ khối)</h2>
+                <div class="grid grid-cols-4 gap-1 mb-2">
+                    <button onclick="window.alignNodes('left')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Căn lề trái"><i class="ph ph-align-left text-lg mx-auto"></i></button>
+                    <button onclick="window.alignNodes('center')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Căn giữa dọc"><i class="ph ph-align-center-horizontal text-lg mx-auto"></i></button>
+                    <button onclick="window.alignNodes('right')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Căn lề phải"><i class="ph ph-align-right text-lg mx-auto"></i></button>
+                    <button onclick="window.alignNodes('dist-h')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Chia đều ngang"><i class="ph ph-distribute-horizontal-spacing text-lg mx-auto text-blue-600"></i></button>
+                </div>
+                <div class="grid grid-cols-4 gap-1">
+                    <button onclick="window.alignNodes('top')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Căn lề trên"><i class="ph ph-align-top text-lg mx-auto"></i></button>
+                    <button onclick="window.alignNodes('middle')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Căn giữa ngang"><i class="ph ph-align-center-vertical text-lg mx-auto"></i></button>
+                    <button onclick="window.alignNodes('bottom')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Căn lề dưới"><i class="ph ph-align-bottom text-lg mx-auto"></i></button>
+                    <button onclick="window.alignNodes('dist-v')" class="align-btn btn-disabled p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-blue-100 text-gray-700" title="Chia đều dọc"><i class="ph ph-distribute-vertical-spacing text-lg mx-auto text-blue-600"></i></button>
+                </div>
+            </div>
+
+            <div class="p-4 border-b border-gray-200">
+                <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Thêm khối mới</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="window.addNodeToCenter('start')" class="py-2 px-1 border border-gray-200 bg-gray-50 text-gray-700 rounded text-xs font-semibold hover:bg-gray-100 flex flex-col items-center gap-1 transition"><i class="ph ph-play-circle text-lg text-green-600"></i> Bắt đầu</button>
+                    <button onclick="window.addNodeToCenter('end')" class="py-2 px-1 border border-gray-200 bg-gray-50 text-gray-700 rounded text-xs font-semibold hover:bg-gray-100 flex flex-col items-center gap-1 transition"><i class="ph ph-stop-circle text-lg text-red-600"></i> Kết thúc</button>
+                    <button onclick="window.addNodeToCenter('process')" class="py-2 px-1 border border-gray-200 bg-gray-50 text-gray-700 rounded text-xs font-semibold hover:bg-gray-100 flex flex-col items-center gap-1 transition col-span-2"><i class="ph ph-square text-lg text-blue-600"></i> Xử lý</button>
+                    <button onclick="window.addNodeToCenter('decision')" class="py-2 px-1 border border-gray-200 bg-gray-50 text-gray-700 rounded text-xs font-semibold hover:bg-gray-100 flex flex-col items-center gap-1 transition col-span-2"><i class="ph ph-diamond text-lg text-yellow-500"></i> Điều kiện</button>
+                    <button onclick="window.addNodeToCenter('text')" class="py-2 px-1 border border-dashed border-gray-300 bg-white text-gray-600 rounded text-xs font-semibold hover:bg-gray-50 flex flex-col items-center gap-1 transition col-span-2"><i class="ph ph-text-t text-lg"></i> Nhãn dán (Label)</button>
+                </div>
+            </div>
+            
+            <div class="p-4 flex-1">
+                <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Line Mặc định</h2>
+                <div class="flex items-center gap-2 mb-2">
+                    <select id="globalLineStylePicker" onchange="window.changeGlobalLineStyle(this.value)" class="flex-1 text-sm border border-gray-300 rounded p-1 outline-none focus:border-blue-500 bg-white">
+                        <option value="curve">Mềm (Curve)</option>
+                        <option value="orthogonal">Góc vuông</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="color" id="globalLinkColorPicker" value="#64748b" class="w-full h-8 p-0 border border-gray-300 rounded cursor-pointer bg-white">
+                </div>
+            </div>
+        </aside>
+
+        <!-- Canvas -->
+        <main class="flex-1 overflow-auto relative canvas-bg" id="canvas-container">
+            <div id="workspace" class="relative transition-transform duration-75" style="width: 3000px; height: 3000px; transform-origin: 0 0; transform: scale(1);">
+                <svg id="links-layer" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></svg>
+                <div id="nodes-layer" class="absolute inset-0 w-full h-full z-10 pointer-events-none"></div>
+                <svg id="handles-layer" class="absolute inset-0 w-full h-full z-20 pointer-events-none"></svg>
+            </div>
+            
+            <!-- Điều khiển ZOOM -->
+            <div class="fixed bottom-6 right-[420px] bg-white border border-gray-200 shadow-lg rounded-full flex items-center z-30 overflow-hidden" id="zoom-controls">
+                <button onclick="window.setZoom(window.currentZoom - 0.1)" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-gray-600 transition border-r border-gray-200"><i class="ph ph-minus"></i></button>
+                <div id="zoom-label" class="px-3 text-sm font-bold text-gray-700 min-w-[60px] text-center cursor-pointer" onclick="window.setZoom(1)">100%</div>
+                <button onclick="window.setZoom(window.currentZoom + 0.1)" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-gray-600 transition border-l border-gray-200"><i class="ph ph-plus"></i></button>
+            </div>
+        </main>
+
+        <!-- Cột Phải -->
+        <aside id="sidebar-right" class="w-[800px] max-w-[90vw] bg-gray-200 border-l border-gray-300 flex flex-col z-20 shadow-xl shrink-0 transition-all duration-300">
+            <div id="document-container" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth"></div>
+        </aside>
+    </div>
+
+    <!-- TÍCH HỢP FIREBASE (MODULE SCRIPT) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, orderBy, limit } 
+            from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // CẤU HÌNH FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCgDNxK4iWLIH4RdcRsayxsM31w2Lc-z8Y",
+            authDomain: "nino-8f735.firebaseapp.com",
+            projectId: "nino-8f735",
+            storageBucket: "nino-8f735.firebasestorage.app",
+            messagingSenderId: "383782390686",
+            appId: "1:383782390686:web:9b35ddb9ad27cbb540248f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- CÁC BIẾN TOÀN CỤC CHÍNH ĐƯỢC GẮN VÀO WINDOW ---
+        window.nodes = []; window.links = []; 
+        window.idCounter = 1; window.linkCounter = 1;
+        window.globalLineStyle = 'curve'; window.currentZoom = 1; 
+        
+        window.isLeftSidebarOpen = true; window.isRightSidebarOpen = true; window.isViewerMode = false;
+        window.currentDbId = null; window.currentShareToken = null;
+
+        window.linkingFromNodeId = null; window.currentQuickAddConfig = null; 
+        window.selectedNodeIds = []; window.selectedLinkId = null;
+
+        window.isDraggingNode = false; window.activeNodeEl = null; window.activeNodeState = null;
+        window.initialDragStates = []; window.dragStartMouseX = 0; window.dragStartMouseY = 0;
+
+        window.isDraggingLinkMid = false; window.activeLinkMid = null; 
+        window.linkDragStartX = 0; window.linkDragStartY = 0; window.linkInitialOffsetX = 0; window.linkInitialOffsetY = 0;
+        window.isDraggingLinkEnd = false; window.activeLinkEnd = null; window.activeLinkEndType = null; 
+
+        window.basicColors = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+        window.nodeConfig = {
+            'start': { baseW: 120, baseH: 50, defaultText: 'Bắt đầu', defBg: '#dcfce7', defBorder: '#22c55e', rounded: 'border-radius: 9999px;' },
+            'end': { baseW: 120, baseH: 50, defaultText: 'Kết thúc', defBg: '#fee2e2', defBorder: '#ef4444', rounded: 'border-radius: 9999px;' },
+            'process': { baseW: 140, baseH: 60, defaultText: 'Xử lý', defBg: '#dbeafe', defBorder: '#3b82f6', rounded: 'border-radius: 6px;' },
+            'decision': { baseW: 160, baseH: 100, defaultText: 'Điều kiện?', defBg: '#fef3c7', defBorder: '#eab308', rounded: 'clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);' },
+            'text': { baseW: 80, baseH: 30, defaultText: 'Text', defBg: 'transparent', defBorder: 'transparent', rounded: '' }
+        };
+
+        // --- KHỞI TẠO APP VỚI FIREBASE ---
+        window.initApp = async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.has('view')) {
+                window.isViewerMode = true;
+                window.isLeftSidebarOpen = false;
+                document.body.classList.add('viewer-mode');
+                hideEditTools();
+                await loadFromFirebaseByToken(urlParams.get('view'));
+            } 
+            else if (urlParams.has('edit')) {
+                await loadFromFirebaseById(urlParams.get('edit'));
+            } 
+            else {
+                const savedDataEl = document.getElementById('saved-data');
+                if (savedDataEl && savedDataEl.textContent.trim().length > 10) {
+                    try {
+                        const state = JSON.parse(savedDataEl.textContent);
+                        applyState(state);
+                    } catch(e) {}
+                } else {
+                    window.loadTemplate('decision');
+                }
+            }
+
+            const container = document.getElementById('canvas-container');
+            container.onmousedown = (e) => { if (e.target.id === 'canvas-container' || e.target.id === 'workspace') window.handleNodeSelection(null, e); };
+            
+            window.updateZoomControlPosition();
+            
+            if(!window.isViewerMode) {
+                window.renderPalettes();
+                window.setupPropertyBindings();
+            }
+
+            if (window.nodes.length > 0) {
+                let sumX = 0, sumY = 0; window.nodes.forEach(n => { sumX += n.x; sumY += n.y; });
+                container.scrollLeft = (sumX / window.nodes.length) - container.clientWidth / 2;
+                container.scrollTop = (sumY / window.nodes.length) - container.clientHeight / 2;
+            } else {
+                container.scrollLeft = 1500 - container.clientWidth / 2;
+                container.scrollTop = 1500 - container.clientHeight / 2;
+            }
+        };
+
+        function hideEditTools() {
+            const sidebarLeft = document.getElementById('sidebar-left');
+            if (sidebarLeft) sidebarLeft.remove();
+            
+            const headerLeft = document.getElementById('header-left-tools');
+            if (headerLeft) headerLeft.innerHTML = `<div class="flex items-center gap-2 ml-2"><i class="ph ph-tree-structure text-2xl text-blue-600"></i><h1 class="font-bold text-lg hidden md:block text-slate-700" id="review-title">Thiết Kế Hệ Thống</h1></div>`;
+
+            const headerRight = document.getElementById('header-right-tools');
+            if (headerRight) {
+                headerRight.innerHTML = `
+                    <div class="flex items-center gap-2 mr-4"><span class="text-xs font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded uppercase tracking-wide"><i class="ph ph-eye"></i> Chế độ Review</span></div>
+                    <button onclick="window.toggleRightPanel()" id="btn-toggle-docs" class="px-3 py-1.5 text-sm font-semibold rounded bg-blue-50 text-blue-700 transition flex items-center gap-2 border border-blue-200"><i class="ph ph-sidebar-simple text-lg"></i> <span class="hidden sm:inline">Tài liệu</span></button>
+                `;
+            }
+        }
+
+        // --- FIREBASE CRUD LOGIC ---
+        async function loadFromFirebaseById(id) {
+            try {
+                const docRef = doc(db, "flowcharts", id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    window.currentDbId = id;
+                    window.currentShareToken = data.share_token;
+                    const state = JSON.parse(data.data_json);
+                    state.docTitle = data.title;
+                    applyState(state);
+                } else { alert("Không tìm thấy sơ đồ!"); window.loadTemplate('decision'); }
+            } catch (e) { console.error("Lỗi:", e); window.loadTemplate('decision'); }
+        }
+
+        async function loadFromFirebaseByToken(token) {
+            try {
+                const querySnapshot = await getDocs(collection(db, "flowcharts"));
+                let foundData = null;
+                querySnapshot.forEach((doc) => {
+                    const d = doc.data();
+                    if(d.share_token === token) foundData = d;
+                });
+                
+                if (foundData) {
+                    const state = JSON.parse(foundData.data_json);
+                    state.docTitle = foundData.title;
+                    applyState(state);
+                    const reviewTitle = document.getElementById('review-title');
+                    if (reviewTitle && state.docTitle) reviewTitle.innerText = state.docTitle;
+                } else { alert("Link chia sẻ không hợp lệ hoặc đã bị xoá!"); }
+            } catch (e) { console.error("Lỗi lấy dữ liệu Review:", e); }
+        }
+
+        function applyState(state) {
+            if (state && state.nodes) {
+                window.nodes = state.nodes; window.links = state.links || []; 
+                window.idCounter = state.idCounter || 100; window.linkCounter = state.linkCounter || 100;
+                window.globalLineStyle = state.globalLineStyle || 'curve';
+                
+                if(!window.isViewerMode) {
+                    const titleInput = document.getElementById('doc-title');
+                    if (titleInput && state.docTitle) titleInput.value = state.docTitle;
+                    document.getElementById('page-title').innerText = state.docTitle || 'Sơ Đồ';
+                    const linePicker = document.getElementById('globalLineStylePicker');
+                    if(linePicker) linePicker.value = window.globalLineStyle;
+                }
+                window.buildDocumentPanel(); window.render();
+            }
+        }
+
+        // --- CÁC HÀM XUẤT RA WINDOW ---
+        window.showToast = function(msg, type='success') {
+            const toast = document.getElementById('toast-message');
+            document.getElementById('toast-text').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        };
+
+        window.saveToServer = async function() {
+            const btnSave = document.getElementById('btn-save-db');
+            btnSave.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> <span class="hidden xl:inline">Đang lưu...</span>';
+            
+            const docTitle = document.getElementById('doc-title').value || 'Sơ Đồ Hệ Thống';
+            const state = { docTitle, nodes: window.nodes, links: window.links, idCounter: window.idCounter, linkCounter: window.linkCounter, globalLineStyle: window.globalLineStyle };
+            
+            try {
+                if (!window.currentDbId) {
+                    window.currentDbId = 'flow_' + Date.now();
+                    window.currentShareToken = 'share_' + Math.random().toString(36).substring(2, 10);
+                }
+                
+                await setDoc(doc(db, "flowcharts", window.currentDbId), {
+                    title: docTitle,
+                    data_json: JSON.stringify(state),
+                    share_token: window.currentShareToken,
+                    updated_at: new Date().toISOString()
+                });
+
+                window.history.replaceState({}, '', '?edit=' + window.currentDbId);
+                window.showToast('Đã lưu sơ đồ lên Firebase thành công!');
+            } catch (e) {
+                console.error("Lỗi lưu DB:", e);
+                alert("Không thể kết nối đến Database.");
+            } finally {
+                btnSave.innerHTML = '<i class="ph ph-cloud-arrow-up text-lg"></i> <span class="hidden xl:inline">Lưu DB</span>';
+            }
+        };
+
+        let cachedDocs = [];
+        window.openSearchModal = async function() {
+            document.getElementById('search-modal').classList.remove('hidden');
+            document.getElementById('search-input').focus();
+            const ul = document.getElementById('search-results');
+            const loading = document.getElementById('search-loading');
+            
+            if (cachedDocs.length === 0) {
+                loading.classList.remove('hidden'); ul.innerHTML = '';
+                try {
+                    const q = query(collection(db, "flowcharts"), orderBy("updated_at", "desc"), limit(50));
+                    const querySnapshot = await getDocs(q);
+                    cachedDocs = [];
+                    querySnapshot.forEach((doc) => {
+                        cachedDocs.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch(e) { console.log(e); }
+                loading.classList.add('hidden');
+            }
+            window.searchFlowcharts();
+        };
+
+        window.closeSearchModal = function() { document.getElementById('search-modal').classList.add('hidden'); };
+
+        window.searchFlowcharts = function() {
+            const keyword = document.getElementById('search-input').value.toLowerCase();
+            const ul = document.getElementById('search-results');
+            ul.innerHTML = '';
+            
+            const filtered = cachedDocs.filter(d => d.title.toLowerCase().includes(keyword));
+            
+            if(filtered.length === 0) {
+                ul.innerHTML = '<li class="text-gray-500 text-sm italic text-center py-4">Không tìm thấy sơ đồ nào.</li>';
+                return;
+            }
+            
+            filtered.forEach(item => {
+                const dateObj = new Date(item.updated_at);
+                const dateStr = dateObj.toLocaleDateString('vi-VN') + ' ' + dateObj.toLocaleTimeString('vi-VN');
+                ul.innerHTML += `
+                    <li class="border border-gray-200 rounded p-3 hover:bg-blue-50 transition cursor-pointer flex justify-between items-center" onclick="window.location.href='?edit=${item.id}'">
+                        <div>
+                            <h3 class="font-bold text-gray-800 text-sm">${item.title}</h3>
+                            <p class="text-[11px] text-gray-400 mt-1">Cập nhật: ${dateStr}</p>
+                        </div>
+                        <i class="ph ph-caret-right text-gray-400"></i>
+                    </li>
+                `;
+            });
+        };
+
+        window.copyShareLink = function() {
+            if (!window.currentShareToken) {
+                alert("Bạn cần bấm 'Lưu DB' lần đầu tiên để tạo Link chia sẻ!"); return;
+            }
+            const url = window.location.origin + window.location.pathname + '?view=' + window.currentShareToken;
+            navigator.clipboard.writeText(url).then(() => { window.showToast('Đã copy Link Review vào Clipboard!'); });
+        };
+
+        window.setZoom = function(level) {
+            window.currentZoom = Math.max(0.3, Math.min(2.5, level));
+            document.getElementById('workspace').style.transform = `scale(${window.currentZoom})`;
+            document.getElementById('zoom-label').innerText = Math.round(window.currentZoom * 100) + '%';
+        };
+
+        window.toggleLeftPanel = function() {
+            window.isLeftSidebarOpen = !window.isLeftSidebarOpen; const panel = document.getElementById('sidebar-left'); const btn = document.getElementById('btn-toggle-tools');
+            if(window.isLeftSidebarOpen) { panel.classList.remove('hidden'); btn.classList.add('bg-gray-100', 'border-gray-200'); btn.classList.remove('bg-white', 'border-transparent'); } 
+            else { panel.classList.add('hidden'); btn.classList.remove('bg-gray-100', 'border-gray-200'); btn.classList.add('bg-white', 'border-transparent'); }
+        };
+
+        window.toggleRightPanel = function() {
+            window.isRightSidebarOpen = !window.isRightSidebarOpen; const panel = document.getElementById('sidebar-right'); const btn = document.getElementById('btn-toggle-docs');
+            if(window.isRightSidebarOpen) { panel.classList.remove('hidden'); btn.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-200'); btn.classList.remove('bg-gray-100', 'text-gray-600', 'border-gray-200'); } 
+            else { panel.classList.add('hidden'); btn.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200'); btn.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200'); }
+            window.updateZoomControlPosition();
+        };
+
+        window.updateZoomControlPosition = function() {
+            const zoomCtrl = document.getElementById('zoom-controls');
+            if(window.isRightSidebarOpen) { zoomCtrl.classList.replace('right-6', 'right-[824px]'); if(!zoomCtrl.classList.contains('right-[824px]')) zoomCtrl.classList.add('right-[824px]'); } 
+            else { zoomCtrl.classList.replace('right-[824px]', 'right-6'); if(!zoomCtrl.classList.contains('right-6')) zoomCtrl.classList.add('right-6'); }
+        };
+
+        window.getWorkspaceMousePos = function(e) {
+            const workspace = document.getElementById('workspace');
+            const rect = workspace.getBoundingClientRect();
+            return { x: (e.clientX - rect.left) / window.currentZoom, y: (e.clientY - rect.top) / window.currentZoom };
+        };
+
+        window.createNode = function(type, x, y, text) { 
+            const node = { id: `node_${window.idCounter++}`, type, x, y, width: window.nodeConfig[type].baseW, height: window.nodeConfig[type].baseH, text: text || window.nodeConfig[type].defaultText, notes: '' }; 
+            window.nodes.push(node); return node; 
+        };
+
+        window.addNodeToCenter = function(type) {
+            const container = document.getElementById('canvas-container');
+            const containerRect = container.getBoundingClientRect();
+            const fakeEvent = { clientX: containerRect.left + container.clientWidth / 2, clientY: containerRect.top + container.clientHeight / 2 };
+            const pos = window.getWorkspaceMousePos(fakeEvent);
+            const newNode = window.createNode(type, pos.x - window.nodeConfig[type].baseW / 2, pos.y - window.nodeConfig[type].baseH / 2); 
+            window.buildDocumentPanel(); window.handleNodeSelection(newNode.id, {});
+        };
+
+        window.deleteNode = function(id) {
+            window.nodes = window.nodes.filter(n => n.id !== id); window.links = window.links.filter(l => l.source !== id && l.target !== id);
+            if (window.linkingFromNodeId === id) window.cancelLinkMode();
+            window.buildDocumentPanel(); window.handleNodeSelection(null, {});
+        };
+
+        window.clearCanvas = function() { window.nodes = []; window.links = []; window.buildDocumentPanel(); window.handleNodeSelection(null, {}); };
+
+        window.showQuickMenu = function(e, sourceId, direction) {
+            e.stopPropagation();
+            if (window.linkingFromNodeId || window.isViewerMode) return;
+            window.currentQuickAddConfig = { sourceId, direction };
+            const menu = document.getElementById('quick-menu');
+            menu.classList.remove('hidden'); menu.style.left = `${e.clientX + 15}px`; menu.style.top = `${e.clientY + 15}px`;
+        };
+
+        window.executeQuickAdd = function(actionType) {
+            document.getElementById('quick-menu').classList.add('hidden');
+            if (!window.currentQuickAddConfig) return;
+            const { sourceId, direction } = window.currentQuickAddConfig;
+            
+            if (actionType === 'link') {
+                window.linkingFromNodeId = sourceId; window.handleNodeSelection(null, {}); 
+                document.getElementById('link-mode-toast').classList.remove('hidden'); return;
+            }
+
+            const source = window.nodes.find(n => n.id === sourceId);
+            if (!source) return;
+
+            const gap = 80; let nx = source.x; let ny = source.y;
+            if (direction === 'bottom') { ny = source.y + source.height + gap; nx = source.x + source.width/2 - window.nodeConfig[actionType].baseW/2; } 
+            else if (direction === 'right') { nx = source.x + source.width + gap; ny = source.y + source.height/2 - window.nodeConfig[actionType].baseH/2; }
+
+            const newNode = window.createNode(actionType, nx, ny);
+            const cp = document.getElementById('globalLinkColorPicker');
+            window.links.push({ id: `link_${window.linkCounter++}`, source: sourceId, target: newNode.id, color: cp ? cp.value : '#64748b', lineStyle: window.globalLineStyle, offsetX: 0, offsetY: 0, sourceAnchor: 'auto', targetAnchor: 'auto' });
+            
+            window.buildDocumentPanel(); window.handleNodeSelection(newNode.id, {});
+        };
+
+        window.cancelLinkMode = function() { window.linkingFromNodeId = null; const tb = document.getElementById('link-mode-toast'); if(tb) tb.classList.add('hidden'); window.renderNodes(); };
+
+        window.changeGlobalLineStyle = function(val) { window.globalLineStyle = val; window.renderLinks(); };
+
+        window.getAnchor = function(node, targetCenterX, targetCenterY, anchorType) {
+            const cx = node.x + node.width / 2; const cy = node.y + node.height / 2;
+            if (anchorType === 'top') return { x: cx, y: node.y }; if (anchorType === 'bottom') return { x: cx, y: node.y + node.height };
+            if (anchorType === 'left') return { x: node.x, y: cy }; if (anchorType === 'right') return { x: node.x + node.width, y: cy };
+            const dx = targetCenterX - cx; const dy = targetCenterY - cy;
+            if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? { x: node.x + node.width, y: cy } : { x: node.x, y: cy };
+            else return dy > 0 ? { x: cx, y: node.y + node.height } : { x: cx, y: node.y };
+        };
+
+        window.unhighlightDocs = function() {
+            window.nodes.forEach(n => {
+                const block = document.getElementById(`doc_block_${n.id}`);
+                if (block) { block.classList.remove('ring-2', 'ring-blue-500', 'shadow-lg'); block.classList.add('border-gray-200'); }
+            });
+        };
+
+        window.handleNodeSelection = function(id, e) {
+            window.selectedLinkId = null;
+            if (!id) {
+                window.selectedNodeIds = [];
+            } else {
+                if (e && e.shiftKey) {
+                    if (window.selectedNodeIds.includes(id)) window.selectedNodeIds = window.selectedNodeIds.filter(nid => nid !== id);
+                    else window.selectedNodeIds.push(id);
+                } else {
+                    if (!window.selectedNodeIds.includes(id)) window.selectedNodeIds = [id];
+                }
+            }
+            
+            window.renderNodes(); window.renderLinks(); 
+            if(!window.isViewerMode) window.updatePropertiesPanel();
+            window.unhighlightDocs();
+
+            if(window.selectedNodeIds.length === 1 && !window.nodes.find(n=>n.id===window.selectedNodeIds[0])?.type.includes('text')) {
+                const block = document.getElementById(`doc_block_${window.selectedNodeIds[0]}`);
+                if (block) {
+                    block.classList.add('ring-2', 'ring-blue-500', 'shadow-lg'); block.classList.remove('border-gray-200');
+                    if(window.isRightSidebarOpen) block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            
+            const alignBtns = document.querySelectorAll('.align-btn');
+            const insertBtn = document.getElementById('btn-insert-between');
+            if(window.selectedNodeIds.length >= 2) alignBtns.forEach(b => b.classList.remove('btn-disabled'));
+            else alignBtns.forEach(b => b.classList.add('btn-disabled'));
+
+            if(window.selectedNodeIds.length === 2 && insertBtn) insertBtn.classList.remove('btn-disabled');
+            else if(insertBtn) insertBtn.classList.add('btn-disabled');
+        };
+
+        window.selectLink = function(id) {
+            window.selectedLinkId = id; window.selectedNodeIds = [];
+            window.renderNodes(); window.renderLinks(); 
+            if(!window.isViewerMode) window.updatePropertiesPanel(); 
+            window.unhighlightDocs(); 
+        };
+
+        window.alignNodes = function(type) {
+            if (window.selectedNodeIds.length < 2) return;
+            const selNodes = window.nodes.filter(n => window.selectedNodeIds.includes(n.id));
+            if (selNodes.length === 0) return;
+
+            if (type === 'left') { const minX = Math.min(...selNodes.map(n => n.x)); selNodes.forEach(n => n.x = minX); } 
+            else if (type === 'right') { const maxR = Math.max(...selNodes.map(n => n.x + n.width)); selNodes.forEach(n => n.x = maxR - n.width); } 
+            else if (type === 'center') { const minX = Math.min(...selNodes.map(n => n.x)); const maxR = Math.max(...selNodes.map(n => n.x + n.width)); const center = (minX + maxR) / 2; selNodes.forEach(n => n.x = center - n.width / 2); } 
+            else if (type === 'top') { const minY = Math.min(...selNodes.map(n => n.y)); selNodes.forEach(n => n.y = minY); } 
+            else if (type === 'bottom') { const maxY = Math.max(...selNodes.map(n => n.y + n.height)); selNodes.forEach(n => n.y = maxY - n.height); } 
+            else if (type === 'middle') { const minY = Math.min(...selNodes.map(n => n.y)); const maxY = Math.max(...selNodes.map(n => n.y + n.height)); const middle = (minY + maxY) / 2; selNodes.forEach(n => n.y = middle - n.height / 2); } 
+            else if (type === 'dist-h') {
+                selNodes.sort((a,b) => a.x - b.x); const first = selNodes[0]; const last = selNodes[selNodes.length-1];
+                const totalSpan = (last.x + last.width) - first.x; const sumWidths = selNodes.reduce((sum, n) => sum + n.width, 0);
+                const gap = (totalSpan - sumWidths) / (selNodes.length - 1); let currentX = first.x;
+                selNodes.forEach(n => { n.x = currentX; currentX += n.width + gap; });
+            } 
+            else if (type === 'dist-v') {
+                selNodes.sort((a,b) => a.y - b.y); const first = selNodes[0]; const last = selNodes[selNodes.length-1];
+                const totalSpan = (last.y + last.height) - first.y; const sumHeights = selNodes.reduce((sum, n) => sum + n.height, 0);
+                const gap = (totalSpan - sumHeights) / (selNodes.length - 1); let currentY = first.y;
+                selNodes.forEach(n => { n.y = currentY; currentY += n.height + gap; });
+            }
+            window.render();
+        };
+
+        window.insertNodeBetween = function() {
+            if (window.selectedNodeIds.length !== 2) return;
+            const n1 = window.nodes.find(n => n.id === window.selectedNodeIds[0]); const n2 = window.nodes.find(n => n.id === window.selectedNodeIds[1]);
+            if (!n1 || !n2) return;
+
+            const dx = n2.x - n1.x; const dy = n2.y - n1.y;
+            const isVertical = Math.abs(dy) >= Math.abs(dx);
+
+            const type = 'process';
+            const w = window.nodeConfig[type].baseW; const h = window.nodeConfig[type].baseH;
+            const gapX = w + 40; const gapY = h + 40;
+
+            if (isVertical) {
+                const shiftY = dy >= 0 ? gapY : -gapY;
+                const thresholdY = dy >= 0 ? Math.min(n1.y, n2.y) + Math.abs(dy)/2 : Math.max(n1.y, n2.y) - Math.abs(dy)/2;
+                window.nodes.forEach(n => {
+                    if (dy >= 0 && n.y >= thresholdY) n.y += shiftY;
+                    if (dy < 0 && n.y <= thresholdY) n.y += shiftY;
+                });
+            } else {
+                const shiftX = dx >= 0 ? gapX : -gapX;
+                const thresholdX = dx >= 0 ? Math.min(n1.x, n2.x) + Math.abs(dx)/2 : Math.max(n1.x, n2.x) - Math.abs(dx)/2;
+                window.nodes.forEach(n => {
+                    if (dx >= 0 && n.x >= thresholdX) n.x += shiftX;
+                    if (dx < 0 && n.x <= thresholdX) n.x += shiftX;
+                });
+            }
+
+            const cx1 = n1.x + n1.width/2; const cy1 = n1.y + n1.height/2;
+            const cx2 = n2.x + n2.width/2; const cy2 = n2.y + n2.height/2;
+            const midX = (cx1 + cx2) / 2; const midY = (cy1 + cy2) / 2;
+
+            const newNodeX = midX - w / 2; const newNodeY = midY - h / 2;
+            const newNode = window.createNode(type, newNodeX, newNodeY, 'Bước trung gian');
+
+            const linkIndex = window.links.findIndex(l => (l.source === n1.id && l.target === n2.id) || (l.source === n2.id && l.target === n1.id));
+            if (linkIndex !== -1) {
+                const oldLink = window.links[linkIndex]; window.links.splice(linkIndex, 1);
+                window.links.push({ id: `link_${window.linkCounter++}`, source: oldLink.source, target: newNode.id, color: oldLink.color, lineStyle: oldLink.lineStyle, offsetX: 0, offsetY: 0, sourceAnchor: oldLink.sourceAnchor, targetAnchor: 'auto' });
+                window.links.push({ id: `link_${window.linkCounter++}`, source: newNode.id, target: oldLink.target, color: oldLink.color, lineStyle: oldLink.lineStyle, offsetX: 0, offsetY: 0, sourceAnchor: 'auto', targetAnchor: oldLink.targetAnchor });
+            }
+            window.buildDocumentPanel(); window.handleNodeSelection(newNode.id, { shiftKey: false });
+        };
+
+        window.renderPalettes = function() {
+            const bgPalette = document.getElementById('palette-node-bg');
+            if(!bgPalette) return; 
+            const makePalette = (targetInputId, type) => {
+                let html = '';
+                window.basicColors.forEach(c => {
+                    html += `<button onclick="window.applyQuickColor('${targetInputId}', '${c}', '${type}')" class="w-[18px] h-[18px] rounded-full border border-gray-300 hover:scale-125 transition-transform shadow-sm" style="background-color: ${c};" title="${c}"></button>`;
+                });
+                return html;
+            };
+            bgPalette.innerHTML = makePalette('prop-node-bg', 'nodeBg');
+            document.getElementById('palette-node-text').innerHTML = makePalette('prop-node-color', 'nodeText');
+            document.getElementById('palette-link-color').innerHTML = makePalette('prop-link-color', 'linkColor');
+        };
+
+        window.applyQuickColor = function(inputId, color, type) {
+            const input = document.getElementById(inputId);
+            if(input) {
+                input.value = color;
+                if(type === 'nodeBg') {
+                    if (window.selectedNodeIds.length === 1) { const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]); if(node) { node.bgColor = color; window.renderNodes(); } }
+                } else if(type === 'nodeText') {
+                    if (window.selectedNodeIds.length === 1) { const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]); if(node) { node.textColor = color; window.renderNodes(); } }
+                } else if(type === 'linkColor') {
+                    if (window.selectedLinkId) { const link = window.links.find(l => l.id === window.selectedLinkId); if(link) { link.color = color; window.renderLinks(); } }
+                }
+            }
+        };
+
+        window.setupPropertyBindings = function() {
+            document.getElementById('prop-node-text').oninput = (e) => {
+                if (window.selectedNodeIds.length === 1) {
+                    const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]);
+                    if(node) {
+                        node.text = e.target.value; window.renderNodes();
+                        if (node.type !== 'text') {
+                            const docHeader = document.querySelector(`#doc_header_${node.id} span`);
+                            if(docHeader) docHeader.innerText = node.text;
+                        }
+                    }
+                }
+            };
+
+            document.getElementById('prop-node-width').oninput = (e) => {
+                if (window.selectedNodeIds.length === 1) {
+                    const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]);
+                    if(node) { node.width = parseInt(e.target.value) || window.nodeConfig[node.type].baseW; window.renderNodes(); window.renderLinks(); }
+                }
+            };
+            document.getElementById('prop-node-height').oninput = (e) => {
+                if (window.selectedNodeIds.length === 1) {
+                    const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]);
+                    if(node) { node.height = parseInt(e.target.value) || window.nodeConfig[node.type].baseH; window.renderNodes(); window.renderLinks(); }
+                }
+            };
+            
+            document.getElementById('prop-node-type').onchange = (e) => {
+                if (window.selectedNodeIds.length === 1) {
+                    const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]);
+                    if(node) {
+                        const newType = e.target.value;
+                        node.type = newType; node.width = window.nodeConfig[newType].baseW; node.height = window.nodeConfig[newType].baseH;
+                        window.buildDocumentPanel(); window.render(); window.updatePropertiesPanel();
+                    }
+                }
+            };
+
+            document.getElementById('prop-node-bg').oninput = (e) => {
+                if (window.selectedNodeIds.length === 1) { const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]); if(node) { node.bgColor = e.target.value; window.renderNodes(); } }
+            };
+            document.getElementById('prop-node-color').oninput = (e) => {
+                if (window.selectedNodeIds.length === 1) { const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]); if(node) { node.textColor = e.target.value; window.renderNodes(); } }
+            };
+
+            document.getElementById('prop-link-style').onchange = (e) => {
+                if (window.selectedLinkId) { const link = window.links.find(l => l.id === window.selectedLinkId); if(link) { link.lineStyle = e.target.value; window.renderLinks(); } }
+            };
+            document.getElementById('prop-link-color').oninput = (e) => {
+                if (window.selectedLinkId) { const link = window.links.find(l => l.id === window.selectedLinkId); if(link) { link.color = e.target.value; window.renderLinks(); } }
+            };
+        };
+
+        window.updatePropertiesPanel = function() {
+            if(window.isViewerMode) return;
+            const propPanel = document.getElementById('properties-panel');
+            const nodeGroup = document.getElementById('prop-node-group');
+            const linkGroup = document.getElementById('prop-link-group');
+
+            if (window.selectedNodeIds.length === 1 && !window.selectedLinkId) {
+                propPanel.classList.remove('hidden'); nodeGroup.classList.replace('hidden', 'flex'); linkGroup.classList.replace('flex', 'hidden');
+                
+                const node = window.nodes.find(n => n.id === window.selectedNodeIds[0]);
+                document.getElementById('prop-node-text').value = node.text || '';
+                document.getElementById('prop-node-type').value = node.type;
+                document.getElementById('prop-node-bg').value = node.bgColor || window.nodeConfig[node.type].defBg || '#ffffff';
+                document.getElementById('prop-node-color').value = node.textColor || (node.type==='text'?'#1e293b':'#0f172a');
+                document.getElementById('prop-node-width').value = node.width || window.nodeConfig[node.type].baseW;
+                document.getElementById('prop-node-height').value = node.height || window.nodeConfig[node.type].baseH;
+            } 
+            else if (window.selectedLinkId) {
+                propPanel.classList.remove('hidden'); nodeGroup.classList.replace('flex', 'hidden'); linkGroup.classList.replace('hidden', 'flex');
+                const link = window.links.find(l => l.id === window.selectedLinkId);
+                document.getElementById('prop-link-style').value = link.lineStyle || window.globalLineStyle;
+                document.getElementById('prop-link-color').value = link.color || '#64748b';
+            } 
+            else { propPanel.classList.add('hidden'); }
+        };
+
+        window.exportHTMLFile = function() {
+            window.handleNodeSelection(null, {shiftKey: false}); 
+            const docTitle = document.getElementById('doc-title').value || 'So_Do';
+            const state = { docTitle, nodes: window.nodes, links: window.links, idCounter: window.idCounter, linkCounter: window.linkCounter, globalLineStyle: window.globalLineStyle };
+            const dataStr = JSON.stringify(state);
+            
+            const clone = document.documentElement.cloneNode(true);
+            const dataScript = clone.querySelector('#saved-data');
+            if (dataScript) dataScript.textContent = dataStr;
+            
+            const titleTag = clone.querySelector('title');
+            if (titleTag) titleTag.textContent = docTitle;
+
+            const clonedTitleInput = clone.querySelector('#doc-title');
+            if(clonedTitleInput) clonedTitleInput.setAttribute('value', docTitle);
+
+            clone.querySelector('#nodes-layer').innerHTML = '';
+            clone.querySelector('#links-layer').innerHTML = '';
+            clone.querySelector('#handles-layer').innerHTML = '';
+            clone.querySelector('#document-container').innerHTML = '';
+
+            const htmlContent = "<!DOCTYPE html>\n" + clone.outerHTML;
+            const blob = new Blob([htmlContent], {type: "text/html;charset=utf-8"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; 
+            
+            let safeTitle = docTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'document';
+            a.download = safeTitle + "_backup.html";
+            
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        };
+
+        window.buildDocumentPanel = function() {
+            const container = document.getElementById('document-container');
+            container.innerHTML = '';
+            
+            const validNodes = window.nodes.filter(n => n.type !== 'text');
+            if (validNodes.length === 0) { 
+                container.innerHTML = '<div class="text-sm text-gray-400 text-center mt-20 italic">Bản vẽ đang trống. Hãy thêm khối để viết tài liệu.</div>'; 
+                return; 
+            }
+
+            validNodes.forEach(node => {
+                const block = document.createElement('div');
+                block.id = `doc_block_${node.id}`;
+                block.className = `bg-white p-6 md:p-10 rounded shadow-md border border-gray-200 transition-shadow duration-300 max-w-[794px] mx-auto w-full`;
+
+                const header = document.createElement('h3');
+                header.id = `doc_header_${node.id}`;
+                header.className = 'font-extrabold text-gray-800 text-lg mb-4 border-b border-gray-100 pb-3 flex items-center gap-3';
+                
+                let iconClass = 'ph-square text-blue-500';
+                if(node.type === 'start') iconClass = 'ph-play-circle text-green-500';
+                if(node.type === 'end') iconClass = 'ph-stop-circle text-red-500';
+                if(node.type === 'decision') iconClass = 'ph-diamond text-yellow-500';
+
+                header.innerHTML = `<i class="ph ${iconClass} text-2xl"></i> <span>${node.text}</span>`;
+                
+                const editor = document.createElement('div');
+                editor.className = 'rich-editor text-base text-gray-700 leading-relaxed';
+                editor.contentEditable = window.isViewerMode ? "false" : "true";
+                editor.innerHTML = node.notes || '';
+                
+                if (!window.isViewerMode) {
+                    editor.onfocus = () => { if(!window.selectedNodeIds.includes(node.id)) window.handleNodeSelection(node.id, {}); };
+                    editor.oninput = (e) => { node.notes = e.target.innerHTML; };
+                } else {
+                    editor.onclick = () => { if(!window.selectedNodeIds.includes(node.id)) window.handleNodeSelection(node.id, {}); };
+                }
+
+                block.appendChild(header); block.appendChild(editor); container.appendChild(block);
+            });
+            if (window.selectedNodeIds.length === 1) window.handleNodeSelection(window.selectedNodeIds[0], {});
+        };
+
+        window.render = function() { window.renderNodes(); window.renderLinks(); };
+
+        window.renderNodes = function() {
+            const container = document.getElementById('nodes-layer');
+            container.innerHTML = '';
+            window.nodes.forEach(node => {
+                const config = window.nodeConfig[node.type];
+                const isSelected = window.selectedNodeIds.includes(node.id);
+                
+                const el = document.createElement('div');
+                let baseClass = `pointer-events-auto absolute flex items-center justify-center select-none cursor-move transition-transform `;
+                if (isSelected && node.type !== 'text') baseClass += ' node-selected z-50 scale-[1.02] '; 
+                if (node.type === 'text') {
+                    baseClass += ' hover:bg-gray-200/50 rounded z-40 ';
+                    if (isSelected) baseClass += ' node-selected-text bg-white scale-105 ';
+                }
+                if (window.linkingFromNodeId && node.type !== 'text') { baseClass += (window.linkingFromNodeId !== node.id) ? 'node-link-hover' : 'opacity-50 pointer-events-none'; } 
+                else if (window.isViewerMode) { baseClass += ' cursor-pointer '; }
+                
+                el.className = baseClass;
+                el.style.left = `${node.x}px`; el.style.top = `${node.y}px`;
+                el.style.width = `${node.width || config.baseW}px`; el.style.height = `${node.height || config.baseH}px`;
+                el.id = node.id;
+
+                el.onmousedown = (e) => {
+                    if (window.linkingFromNodeId && node.type !== 'text') {
+                        e.stopPropagation();
+                        const isExist = window.links.some(l => l.source === window.linkingFromNodeId && l.target === node.id);
+                        if (window.linkingFromNodeId !== node.id && !isExist) {
+                            const cp = document.getElementById('globalLinkColorPicker');
+                            window.links.push({ id: `link_${window.linkCounter++}`, source: window.linkingFromNodeId, target: node.id, color: cp ? cp.value : '#64748b', lineStyle: window.globalLineStyle, offsetX: 0, offsetY: 0, sourceAnchor: 'auto', targetAnchor: 'auto' });
+                        }
+                        window.cancelLinkMode(); window.render();
+                    } else if (window.isViewerMode) {
+                        e.stopPropagation(); window.handleNodeSelection(node.id, e); 
+                    } else if (!window.linkingFromNodeId) {
+                        window.setupNodeDrag(el, node, e);
+                    }
+                };
+
+                if (node.type !== 'text') {
+                    const bgEl = document.createElement('div');
+                    bgEl.className = `absolute inset-0 shadow-sm -z-10 bg-opacity-90 border-2`; 
+                    bgEl.style = config.rounded;
+                    bgEl.style.backgroundColor = node.bgColor || config.defBg;
+                    bgEl.style.borderColor = node.borderColor || config.defBorder;
+                    el.appendChild(bgEl);
+                }
+
+                const textEl = document.createElement('div');
+                textEl.className = 'w-full px-2 font-medium text-sm outline-none break-words z-10 node-text-container font-sans leading-tight pointer-events-none flex items-center justify-center';
+                if (node.type === 'decision') textEl.style.width = '70%'; 
+                if (node.type !== 'text') textEl.classList.add('text-center');
+                
+                textEl.style.color = node.textColor || (node.type === 'text' ? '#1e293b' : '#000000');
+                textEl.innerText = node.text;
+                
+                el.appendChild(textEl);
+                
+                if (isSelected && window.selectedNodeIds.length === 1 && !window.linkingFromNodeId && !window.isViewerMode) {
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center transition-opacity shadow cursor-pointer z-50 hover:bg-red-600 hover:scale-110';
+                    delBtn.innerHTML = '<i class="ph ph-x text-xs"></i>';
+                    delBtn.onmousedown = (e) => { e.stopPropagation(); window.deleteNode(node.id); }; el.appendChild(delBtn);
+                    
+                    if (node.type !== 'end' && node.type !== 'text') {
+                        const btnClass = "absolute w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center transition-transform shadow cursor-pointer hover:scale-125 z-50 hover:bg-blue-600 font-bold";
+                        const addRight = document.createElement('button'); addRight.className = `${btnClass} -right-3 top-1/2 -translate-y-1/2`; addRight.innerHTML = '<i class="ph ph-plus text-xs"></i>'; addRight.onmousedown = (e) => { window.showQuickMenu(e, node.id, 'right'); };
+                        const addBottom = document.createElement('button'); addBottom.className = `${btnClass} -bottom-3 left-1/2 -translate-x-1/2`; addBottom.innerHTML = '<i class="ph ph-plus text-xs"></i>'; addBottom.onmousedown = (e) => { window.showQuickMenu(e, node.id, 'bottom'); };
+                        el.appendChild(addRight); el.appendChild(addBottom);
+                    }
+                }
+                
+                container.appendChild(el);
+            });
+        };
+
+        window.renderLinks = function() {
+            const svgLinks = document.getElementById('links-layer'); const svgHandles = document.getElementById('handles-layer');
+            svgLinks.innerHTML = ''; svgHandles.innerHTML = ''; 
+            
+            const uniqueColors = [...new Set(window.links.map(l => l.color || '#64748b'))];
+            let defsHTML = '<defs>';
+            uniqueColors.forEach(color => {
+                const safeColorId = color.replace('#', '');
+                defsHTML += `<marker id="arrow_${safeColorId}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${color}" /></marker>`;
+            });
+            defsHTML += '</defs>'; svgLinks.innerHTML = defsHTML;
+
+            window.links.forEach(link => {
+                const source = window.nodes.find(n => n.id === link.source); const target = window.nodes.find(n => n.id === link.target);
+                if (!source || !target) return;
+
+                const scx = source.x + source.width / 2; const scy = source.y + source.height / 2;
+                const tcx = target.x + target.width / 2; const tcy = target.y + target.height / 2;
+                const p1 = window.getAnchor(source, tcx, tcy, link.sourceAnchor); const p2 = window.getAnchor(target, scx, scy, link.targetAnchor);
+                const midX = (p1.x + p2.x) / 2 + (link.offsetX || 0); const midY = (p1.y + p2.y) / 2 + (link.offsetY || 0);
+                
+                let pathStr = "";
+                const curStyle = link.lineStyle || window.globalLineStyle;
+                if (curStyle === 'curve') pathStr = `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`;
+                else {
+                    if (Math.abs(p2.x - p1.x) > Math.abs(p2.y - p1.y)) pathStr = `M ${p1.x} ${p1.y} L ${midX} ${p1.y} L ${midX} ${p2.y} L ${p2.x} ${p2.y}`;
+                    else pathStr = `M ${p1.x} ${p1.y} L ${p1.x} ${midY} L ${p2.x} ${midY} L ${p2.x} ${p2.y}`;
+                }
+
+                const linkColor = link.color || "#64748b"; const safeColorId = linkColor.replace('#', '');
+                
+                const fatClickPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                fatClickPath.setAttribute("d", pathStr); fatClickPath.setAttribute("stroke", "transparent"); fatClickPath.setAttribute("stroke-width", "20"); fatClickPath.setAttribute("fill", "none"); 
+                fatClickPath.setAttribute("class", window.isViewerMode ? "pointer-events-none" : "cursor-pointer pointer-events-auto");
+                
+                if (!window.isViewerMode) {
+                    fatClickPath.onmousedown = (e) => { 
+                        e.stopPropagation(); window.selectLink(link.id); 
+                    };
+                }
+                svgLinks.appendChild(fatClickPath);
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", pathStr); path.setAttribute("stroke", (window.selectedLinkId === link.id) ? '#3b82f6' : linkColor); path.setAttribute("stroke-width", "2.5"); path.setAttribute("fill", "none"); path.setAttribute("marker-end", `url(#arrow_${safeColorId})`);
+                svgLinks.appendChild(path);
+
+                if (window.selectedLinkId === link.id && !window.isViewerMode) {
+                    const handleMid = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    handleMid.setAttribute("cx", midX); handleMid.setAttribute("cy", midY); handleMid.setAttribute("r", "6"); handleMid.setAttribute("fill", "#0ea5e9"); handleMid.setAttribute("stroke", "#fff"); handleMid.setAttribute("stroke-width", "1.5"); handleMid.setAttribute("class", "cursor-move pointer-events-auto transition-all hover:r-8");
+                    handleMid.onmousedown = (e) => { 
+                        e.stopPropagation(); window.isDraggingLinkMid = true; window.activeLinkMid = link; 
+                        const mouse = window.getWorkspaceMousePos(e);
+                        window.linkDragStartX = mouse.x; window.linkDragStartY = mouse.y; 
+                        window.linkInitialOffsetX = link.offsetX || 0; window.linkInitialOffsetY = link.offsetY || 0; 
+                    };
+                    svgHandles.appendChild(handleMid);
+
+                    const handleStart = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    handleStart.setAttribute("cx", p1.x); handleStart.setAttribute("cy", p1.y); handleStart.setAttribute("r", "7"); handleStart.setAttribute("fill", "#ffffff"); handleStart.setAttribute("stroke", linkColor); handleStart.setAttribute("stroke-width", "2.5"); handleStart.setAttribute("class", "cursor-crosshair pointer-events-auto transition-all hover:r-9 hover:fill-gray-100");
+                    handleStart.onmousedown = (e) => { e.stopPropagation(); window.isDraggingLinkEnd = true; window.activeLinkEnd = link; window.activeLinkEndType = 'source'; };
+                    svgHandles.appendChild(handleStart);
+
+                    const handleEnd = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    handleEnd.setAttribute("cx", p2.x); handleEnd.setAttribute("cy", p2.y); handleEnd.setAttribute("r", "7"); handleEnd.setAttribute("fill", "#ffffff"); handleEnd.setAttribute("stroke", linkColor); handleEnd.setAttribute("stroke-width", "2.5"); handleEnd.setAttribute("class", "cursor-crosshair pointer-events-auto transition-all hover:r-9 hover:fill-gray-100");
+                    handleEnd.onmousedown = (e) => { e.stopPropagation(); window.isDraggingLinkEnd = true; window.activeLinkEnd = link; window.activeLinkEndType = 'target'; };
+                    svgHandles.appendChild(handleEnd);
+                }
+            });
+        };
+
+        window.setupNodeDrag = function(element, nodeState, e) {
+            window.handleNodeSelection(nodeState.id, e);
+            window.isDraggingNode = true; window.activeNodeEl = element; window.activeNodeState = nodeState;
+            
+            const mouse = window.getWorkspaceMousePos(e);
+            window.dragStartMouseX = mouse.x; window.dragStartMouseY = mouse.y; 
+            
+            window.initialDragStates = window.selectedNodeIds.map(id => {
+                const n = window.nodes.find(x => x.id === id); return { id: n.id, x: n.x, y: n.y };
+            });
+            e.stopPropagation();
+        };
+
+        document.addEventListener('mousemove', (e) => {
+            if (window.isDraggingNode) {
+                const mouse = window.getWorkspaceMousePos(e);
+                const dx = mouse.x - window.dragStartMouseX; const dy = mouse.y - window.dragStartMouseY;
+                
+                window.selectedNodeIds.forEach(id => {
+                    const node = window.nodes.find(n => n.id === id);
+                    const initPos = window.initialDragStates.find(s => s.id === id);
+                    if (node && initPos) {
+                        node.x = initPos.x + dx; node.y = initPos.y + dy;
+                        const el = document.getElementById(node.id);
+                        if (el) { el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; }
+                    }
+                });
+                window.renderLinks();
+            } else if (window.isDraggingLinkMid && window.activeLinkMid) {
+                const mouse = window.getWorkspaceMousePos(e);
+                window.activeLinkMid.offsetX = window.linkInitialOffsetX + (mouse.x - window.linkDragStartX); 
+                window.activeLinkMid.offsetY = window.linkInitialOffsetY + (mouse.y - window.linkDragStartY); window.renderLinks();
+            } else if (window.isDraggingLinkEnd && window.activeLinkEnd) {
+                const mouse = window.getWorkspaceMousePos(e);
+                const targetNodeId = (window.activeLinkEndType === 'source') ? window.activeLinkEnd.source : window.activeLinkEnd.target;
+                const node = window.nodes.find(n => n.id === targetNodeId);
+                
+                if (node) {
+                    let minDist = Infinity; let bestAnchor = 'auto';
+                    ['top', 'bottom', 'left', 'right', 'auto'].forEach(pos => {
+                        let pt = (pos === 'auto') ? { x: node.x + node.width/2, y: node.y + node.height/2 } : window.getAnchor(node, 0, 0, pos); 
+                        const dist = Math.hypot(pt.x - mouse.x, pt.y - mouse.y);
+                        if (dist < minDist) { minDist = dist; bestAnchor = pos; }
+                    });
+                    if (window.activeLinkEndType === 'source') window.activeLinkEnd.sourceAnchor = bestAnchor;
+                    if (window.activeLinkEndType === 'target') window.activeLinkEnd.targetAnchor = bestAnchor;
+                    window.renderLinks();
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (window.isDraggingNode) { window.isDraggingNode = false; window.initialDragStates = []; }
+            if (window.isDraggingLinkMid) { window.isDraggingLinkMid = false; window.activeLinkMid = null; }
+            if (window.isDraggingLinkEnd) { window.isDraggingLinkEnd = false; window.activeLinkEnd = null; }
+        });
+
+        window.loadTemplate = function(type) {
+            window.clearCanvas();
+            const cx = 1500, cy = 1300; 
+            if (type === 'basic') {
+                const n1 = window.createNode('start', cx - 60, cy, 'Bắt đầu');
+                const n2 = window.createNode('process', cx - 70, cy + 120, 'Nhập dữ liệu');
+                const n3 = window.createNode('process', cx - 70, cy + 240, 'Xử lý báo cáo');
+                const n4 = window.createNode('end', cx - 60, cy + 360, 'Hoàn thành');
+                
+                n2.notes = '<b>Nguồn dữ liệu:</b><br/>Nhập qua hệ thống SFIS.';
+
+                window.links.push(
+                    { id: `link_${window.linkCounter++}`, source: n1.id, target: n2.id, lineStyle: window.globalLineStyle, sourceAnchor: 'auto', targetAnchor: 'auto' }, 
+                    { id: `link_${window.linkCounter++}`, source: n2.id, target: n3.id, lineStyle: window.globalLineStyle, sourceAnchor: 'auto', targetAnchor: 'auto' }, 
+                    { id: `link_${window.linkCounter++}`, source: n3.id, target: n4.id, lineStyle: window.globalLineStyle, sourceAnchor: 'auto', targetAnchor: 'auto' }
+                );
+            } else if (type === 'decision') {
+                const n1 = window.createNode('start', cx - 60, cy, 'Bắt đầu');
+                const n2 = window.createNode('process', cx - 70, cy + 120, 'Đăng nhập');
+                const n3 = window.createNode('decision', cx - 80, cy + 240, 'Mật khẩu đúng?');
+                const n4 = window.createNode('process', cx + 150, cy + 260, 'Báo lỗi');
+                const n5 = window.createNode('process', cx - 70, cy + 380, 'Vào Dashboard');
+                const n6 = window.createNode('end', cx - 60, cy + 500, 'Kết thúc');
+                
+                const t1 = window.createNode('text', cx - 110, cy + 300, 'Yes'); t1.textColor = '#22c55e';
+                const t2 = window.createNode('text', cx + 50, cy + 230, 'No'); t2.textColor = '#ef4444';
+
+                n4.notes = '<span style="color:red">Hệ thống sẽ khóa tài khoản nếu sai mật khẩu 3 lần.</span>';
+
+                window.links.push(
+                    { id: `link_${window.linkCounter++}`, source: n1.id, target: n2.id, lineStyle: window.globalLineStyle, sourceAnchor: 'bottom', targetAnchor: 'top' }, 
+                    { id: `link_${window.linkCounter++}`, source: n2.id, target: n3.id, lineStyle: window.globalLineStyle, sourceAnchor: 'bottom', targetAnchor: 'top' },
+                    { id: `link_${window.linkCounter++}`, source: n3.id, target: n5.id, lineStyle: window.globalLineStyle, sourceAnchor: 'bottom', targetAnchor: 'top' }, 
+                    { id: `link_${window.linkCounter++}`, source: n5.id, target: n6.id, lineStyle: window.globalLineStyle, sourceAnchor: 'bottom', targetAnchor: 'top' },
+                    { id: `link_${window.linkCounter++}`, source: n3.id, target: n4.id, color: '#ef4444', lineStyle: window.globalLineStyle, sourceAnchor: 'right', targetAnchor: 'left' }, 
+                    { id: `link_${window.linkCounter++}`, source: n4.id, target: n2.id, color: '#ef4444', lineStyle: window.globalLineStyle, offsetX: 130, offsetY: -50, sourceAnchor: 'right', targetAnchor: 'right' }
+                );
+            }
+            window.buildDocumentPanel(); window.render();
+        };
+
+        // Chạy init khi DOM sẵn sàng
+        document.addEventListener('DOMContentLoaded', window.initApp);
+    </script>
+</body>
+</html>
