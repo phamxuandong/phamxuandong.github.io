@@ -1,9 +1,20 @@
+<!--
+  * Tên file: index.html
+  * Vị trí lưu dự kiến: /LichAmDuAn/index.html
+  * Chức năng cơ bản:
+  * - Lịch Âm Dương chuẩn xác (thuật toán thiên văn VN).
+  * - Hỗ trợ 3 loại sự kiện: Ghi chú 1 lần, Sinh nhật (lặp ngày Dương), Giỗ (lặp ngày Âm).
+  * - Tuần bắt đầu bằng Thứ 2, Chủ nhật tô đỏ in đậm.
+  * - Hiển thị chi tiết ngày và ghi chú ở khung bên dưới lịch.
+  * - Giao diện tối ưu khoảng cách, chữ to dễ đọc trên mobile.
+  * - Lưu trữ localStorage, xuất nhập file JSON.
+-->
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lịch Âm & Quản Lý Sự Kiện V2</title>
+    <title>Lịch Âm & Quản Lý Sự Kiện V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -12,35 +23,37 @@
             background-color: #f3f4f6; 
             -webkit-tap-highlight-color: transparent;
         }
-        .calendar-cell { transition: all 0.2s ease-in-out; }
+        .calendar-cell { transition: all 0.15s ease-in-out; }
         .calendar-cell:active, .calendar-cell:hover { background-color: #e5e7eb; }
         .has-event::after {
-            content: ''; position: absolute; bottom: 4px; left: 50%;
-            transform: translateX(-50%); width: 6px; height: 6px;
-            background-color: #3b82f6; border-radius: 50%;
+            content: ''; position: absolute; top: 6px; right: 6px;
+            width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%;
+            box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
         }
         textarea::-webkit-scrollbar { width: 4px; }
         textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
-<body class="text-gray-800 antialiased h-screen flex flex-col">
+<body class="text-gray-800 antialiased min-h-screen pb-10">
 
-    <div class="max-w-5xl w-full mx-auto p-1 sm:p-4 flex-1 flex flex-col h-full">
-        <div class="bg-white rounded-t-xl shadow-sm border-b border-gray-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+    <div class="max-w-4xl w-full mx-auto p-2 sm:p-4 flex flex-col gap-3 sm:gap-4">
+        
+        <!-- Header & Controls -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div class="flex items-center justify-between w-full sm:w-auto gap-2">
-                <button onclick="changeMonth(-1)" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition">
+                <button onclick="changeMonth(-1)" class="p-2 bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
-                <h1 id="monthYearText" class="text-lg sm:text-2xl font-bold text-gray-800 text-center flex-1">
+                <h1 id="monthYearText" class="text-xl sm:text-2xl font-bold text-gray-800 text-center flex-1 min-w-[160px]">
                     Tháng 7, 2026
                 </h1>
-                <button onclick="changeMonth(1)" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition">
+                <button onclick="changeMonth(1)" class="p-2 bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
             </div>
             
             <div class="flex items-center justify-between w-full sm:w-auto gap-2">
-                <button onclick="goToday()" class="px-3 py-2 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100 transition text-sm whitespace-nowrap">
+                <button onclick="goToday()" class="px-4 py-2 bg-blue-50 text-blue-600 font-semibold rounded-lg hover:bg-blue-100 transition text-sm whitespace-nowrap">
                     Hôm nay
                 </button>
                 <div class="flex gap-2">
@@ -57,176 +70,174 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-b-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+        <!-- Calendar Grid -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
             <div class="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600">T2</div>
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600">T3</div>
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600">T4</div>
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600">T5</div>
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600">T6</div>
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-indigo-600">T7</div>
-                <div class="py-2 text-center text-xs sm:text-sm font-semibold text-red-500">CN</div>
+                <div class="py-2.5 text-center text-sm font-semibold text-gray-600">T2</div>
+                <div class="py-2.5 text-center text-sm font-semibold text-gray-600">T3</div>
+                <div class="py-2.5 text-center text-sm font-semibold text-gray-600">T4</div>
+                <div class="py-2.5 text-center text-sm font-semibold text-gray-600">T5</div>
+                <div class="py-2.5 text-center text-sm font-semibold text-gray-600">T6</div>
+                <div class="py-2.5 text-center text-sm font-semibold text-indigo-600">T7</div>
+                <div class="py-2.5 text-center text-sm font-bold text-red-600">CN</div>
             </div>
-            <div id="calendarGrid" class="grid grid-cols-7 flex-1 auto-rows-fr bg-gray-200 gap-[1px]"></div>
+            <!-- Bỏ flex-1 và auto-rows-fr để ngày có khoảng cách gọn hơn -->
+            <div id="calendarGrid" class="grid grid-cols-7 bg-gray-200 gap-[1px]"></div>
         </div>
+
+        <!-- Khung chi tiết ngày (Hiển thị ngay dưới lịch) -->
+        <div id="dateDetailsPanel" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 hidden transition-all">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b border-gray-100 pb-4">
+                <div>
+                    <h2 id="panelTitle" class="text-xl font-bold text-blue-700">Ngày ...</h2>
+                    <p id="panelSubtitle" class="text-sm font-medium text-gray-500 mt-1">Âm lịch: ...</p>
+                </div>
+                <button onclick="openNoteModal()" class="w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm transition shadow-sm flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Thêm / Sửa Ghi Chú
+                </button>
+            </div>
+            <div id="panelContent" class="space-y-3 text-sm sm:text-base text-gray-700">
+                <!-- Nội dung ghi chú sẽ chèn vào đây -->
+            </div>
+        </div>
+
     </div>
 
-    <div id="noteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden transform transition-all">
-            <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-                <div>
-                    <h3 class="text-base font-bold text-gray-800" id="modalTitle">Ghi chú sự kiện</h3>
-                    <p class="text-xs text-gray-500" id="modalSubtitle">Dương: ... | Âm: ...</p>
-                </div>
+    <!-- Modal Form (chỉ hiện khi bấm Thêm/Sửa) -->
+    <div id="noteModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden transform transition-all">
+            <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 class="text-lg font-bold text-gray-800">Chỉnh sửa ghi chú</h3>
                 <button onclick="closeModal()" class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             
-            <div class="p-4 overflow-y-auto flex-1 space-y-4">
+            <div class="p-5 overflow-y-auto flex-1 space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700 mb-1">Ghi chú 1 lần (Ngày dương hiện tại):</label>
-                    <textarea id="noteOnce" rows="2" class="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="VD: Đi khám bệnh..."></textarea>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Ghi chú 1 lần (Theo ngày này):</label>
+                    <textarea id="noteOnce" rows="2" class="w-full border border-gray-300 rounded-xl p-3 text-base text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="VD: Lịch họp, đi khám bệnh..."></textarea>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-blue-600 mb-1">Lặp lại hàng năm (Ngày Dương - Sinh nhật...):</label>
-                    <textarea id="noteSolar" rows="2" class="w-full border border-blue-200 rounded-lg p-2 text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none resize-none bg-blue-50/30" placeholder="VD: Sinh nhật con..."></textarea>
+                    <label class="block text-sm font-semibold text-blue-600 mb-1">Lặp lại hàng năm (Ngày Dương):</label>
+                    <textarea id="noteSolar" rows="2" class="w-full border border-blue-200 rounded-xl p-3 text-base text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none resize-none bg-blue-50/30" placeholder="VD: Sinh nhật con, kỷ niệm cưới..."></textarea>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-orange-600 mb-1">Lặp lại hàng năm (Ngày Âm - Giỗ chạp...):</label>
-                    <textarea id="noteLunar" rows="2" class="w-full border border-orange-200 rounded-lg p-2 text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 outline-none resize-none bg-orange-50/30" placeholder="VD: Giỗ ông nội..."></textarea>
+                    <label class="block text-sm font-semibold text-red-600 mb-1">Lặp lại hàng năm (Ngày Âm):</label>
+                    <textarea id="noteLunar" rows="2" class="w-full border border-red-200 rounded-xl p-3 text-base text-gray-700 focus:ring-2 focus:ring-red-500 outline-none resize-none bg-red-50/30" placeholder="VD: Giỗ ông nội, rằm, mùng 1..."></textarea>
                 </div>
             </div>
             
-            <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
-                <button onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition text-sm">Hủy</button>
-                <button onclick="saveNote()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition shadow-sm text-sm">Lưu lại</button>
+            <div class="px-5 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                <button onclick="closeModal()" class="px-5 py-2.5 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold transition text-sm">Hủy</button>
+                <button onclick="saveNote()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition shadow-md text-sm">Lưu lại</button>
             </div>
         </div>
     </div>
 
+    <!-- Alert Box -->
     <div id="msgBox" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[60] p-4">
-        <div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl text-center">
-            <p id="msgText" class="text-gray-800 mb-4 font-medium"></p>
-            <button onclick="closeMsgBox()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">Đóng</button>
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <p id="msgText" class="text-gray-800 mb-5 font-medium text-lg"></p>
+            <button onclick="closeMsgBox()" class="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition w-full">Đóng</button>
         </div>
     </div>
 
+    <!-- ====== JAVASCRIPT ====== -->
     <script>
-        // --- THUẬT TOÁN LỊCH ÂM CHUẨN (Hồ Ngọc Đức) ---
+        // --- THUẬT TOÁN LỊCH ÂM CHUẨN ---
         const PI = Math.PI;
         function getSunLongitude(dayNumber, timeZone) {
-            let t = (dayNumber - 2451545.0) / 36525.0;
-            let t2 = t * t;
+            let t = (dayNumber - 2451545.0) / 36525.0; let t2 = t * t;
             let l = 280.46646 + 36000.76983 * t + 0.0003032 * t2;
             let m = 357.52911 + 35999.05029 * t - 0.0001537 * t2;
             let sunLong = l + (1.914602 - 0.004817 * t - 0.000014 * t2) * Math.sin(m * PI / 180)
-                + (0.019993 - 0.000101 * t) * Math.sin(2 * m * PI / 180)
-                + 0.000289 * Math.sin(3 * m * PI / 180);
+                + (0.019993 - 0.000101 * t) * Math.sin(2 * m * PI / 180) + 0.000289 * Math.sin(3 * m * PI / 180);
             while (sunLong >= 360.0) sunLong -= 360.0;
             while (sunLong < 0.0) sunLong += 360.0;
             return sunLong * PI / 180.0;
         }
-
         function getNewMoonDay(k, timeZone) {
-            let t = k / 1236.85;
-            let t2 = t * t; let t3 = t2 * t;
+            let t = k / 1236.85; let t2 = t * t; let t3 = t2 * t;
             let jd = 2415020.75933 + 29.53058868 * k + 0.0001178 * t2 - 0.000000155 * t3;
             jd += 0.00033 * Math.sin((166.56 + 132.87 * t - 0.009173 * t2) * PI / 180);
             let m = 359.2242 + 29.10535608 * k - 0.0000333 * t2 - 0.00000347 * t3;
             let mprime = 306.0253 + 385.81691806 * k + 0.0107306 * t2 + 0.00001236 * t3;
             let f = 21.2964 + 390.67050646 * k - 0.0016528 * t2 - 0.00000239 * t3;
-            jd += (0.1734 - 0.000393 * t) * Math.sin(m * PI / 180)
-                + 0.0021 * Math.sin(2 * m * PI / 180)
-                - 0.4068 * Math.sin(mprime * PI / 180)
-                + 0.0161 * Math.sin(2 * mprime * PI / 180)
-                - 0.0004 * Math.sin(3 * mprime * PI / 180)
-                + 0.0104 * Math.sin(2 * f * PI / 180)
-                - 0.0051 * Math.sin((m + mprime) * PI / 180)
-                - 0.0074 * Math.sin((m - mprime) * PI / 180)
-                + 0.0004 * Math.sin((2 * f + m) * PI / 180)
-                - 0.0004 * Math.sin((2 * f - m) * PI / 180)
-                - 0.0006 * Math.sin((2 * f + mprime) * PI / 180)
-                + 0.0010 * Math.sin((2 * f - mprime) * PI / 180)
+            jd += (0.1734 - 0.000393 * t) * Math.sin(m * PI / 180) + 0.0021 * Math.sin(2 * m * PI / 180)
+                - 0.4068 * Math.sin(mprime * PI / 180) + 0.0161 * Math.sin(2 * mprime * PI / 180)
+                - 0.0004 * Math.sin(3 * mprime * PI / 180) + 0.0104 * Math.sin(2 * f * PI / 180)
+                - 0.0051 * Math.sin((m + mprime) * PI / 180) - 0.0074 * Math.sin((m - mprime) * PI / 180)
+                + 0.0004 * Math.sin((2 * f + m) * PI / 180) - 0.0004 * Math.sin((2 * f - m) * PI / 180)
+                - 0.0006 * Math.sin((2 * f + mprime) * PI / 180) + 0.0010 * Math.sin((2 * f - mprime) * PI / 180)
                 + 0.0005 * Math.sin((m + 2 * mprime) * PI / 180);
             return Math.floor(jd + 0.5 + timeZone / 24);
         }
-
         function jdFromDate(dd, mm, yy) {
-            let a = Math.floor((14 - mm) / 12);
-            let y = yy + 4800 - a;
-            let m = mm + 12 * a - 3;
+            let a = Math.floor((14 - mm) / 12); let y = yy + 4800 - a; let m = mm + 12 * a - 3;
             let jd = dd + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
             if (jd < 2299161) jd = dd + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - 32083;
             return jd;
         }
-
         function getLunarMonth11(yy, timeZone) {
-            let off = jdFromDate(31, 12, yy) - 2415021;
-            let k = Math.floor(off / 29.530588853);
-            let nm = getNewMoonDay(k, timeZone);
-            let sunLong = getSunLongitude(nm, timeZone);
+            let off = jdFromDate(31, 12, yy) - 2415021; let k = Math.floor(off / 29.530588853);
+            let nm = getNewMoonDay(k, timeZone); let sunLong = getSunLongitude(nm, timeZone);
             if (sunLong >= 9) nm = getNewMoonDay(k - 1, timeZone);
             return nm;
         }
-
         function getLeapMonthOffset(a11, timeZone) {
-            let k = Math.floor((a11 - 2415021.076998695) / 29.530588853 + 0.5);
-            let last = 0, i = 1;
+            let k = Math.floor((a11 - 2415021.076998695) / 29.530588853 + 0.5); let last = 0, i = 1;
             let arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone);
-            do {
-                last = arc;
-                i++;
-                arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone);
-            } while (arc != last && i < 14);
+            do { last = arc; i++; arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone); } while (arc != last && i < 14);
             return i - 1;
         }
-
         function convertSolar2Lunar(dd, mm, yy, timeZone) {
             let dayNumber = jdFromDate(dd, mm, yy);
             let k = Math.floor((dayNumber - 2415021.076998695) / 29.530588853);
             let monthStart = getNewMoonDay(k + 1, timeZone);
             if (monthStart > dayNumber) monthStart = getNewMoonDay(k, timeZone);
-            let a11 = getLunarMonth11(yy, timeZone);
-            let b11 = a11;
-            if (a11 >= monthStart) a11 = getLunarMonth11(yy - 1, timeZone);
-            else b11 = getLunarMonth11(yy + 1, timeZone);
-            let dayStart = monthStart;
-            let lunarDay = dayNumber - dayStart + 1;
-            let diff = Math.floor((monthStart - a11) / 29);
-            let lunarYear = yy;
-            let lunarMonth = diff + 11;
+            let a11 = getLunarMonth11(yy, timeZone); let b11 = a11;
+            if (a11 >= monthStart) a11 = getLunarMonth11(yy - 1, timeZone); else b11 = getLunarMonth11(yy + 1, timeZone);
+            let dayStart = monthStart; let lunarDay = dayNumber - dayStart + 1;
+            let diff = Math.floor((monthStart - a11) / 29); let lunarYear = yy; let lunarMonth = diff + 11;
             if (b11 - a11 > 365) {
                 let leapMonthDiff = getLeapMonthOffset(a11, timeZone);
-                if (diff >= leapMonthDiff) {
-                    lunarMonth = diff + 10;
-                }
+                if (diff >= leapMonthDiff) lunarMonth = diff + 10;
             }
             if (lunarMonth > 12) lunarMonth -= 12;
             if (lunarMonth >= 11 && diff < 4) lunarYear -= 1;
             return [lunarDay, lunarMonth, lunarYear];
         }
 
-        // --- APP LOGIC & DATA STRUCTURE V2 ---
+        // --- APP LOGIC ---
         const LUNAR_EVENTS_KEY = 'lunar_calendar_events_v2';
         let currentDate = new Date();
         let currentMonth = currentDate.getMonth(); 
         let currentYear = currentDate.getFullYear();
-        let selectedKeys = {}; // Lưu key đang mở trong modal
+        let selectedKeys = null; // Biến lưu ngày đang được chọn
         
-        // Cấu trúc dữ liệu: { once: {}, solar: {}, lunar: {} }
-        let eventsData = JSON.parse(localStorage.getItem(LUNAR_EVENTS_KEY));
-        
-        // Migration từ v1 -> v2 (Nếu có data cũ)
-        if (!eventsData || !eventsData.once) {
-            let oldData = JSON.parse(localStorage.getItem('lunar_calendar_events_v1')) || {};
-            eventsData = { once: oldData, solar: {}, lunar: {} };
-            localStorage.setItem(LUNAR_EVENTS_KEY, JSON.stringify(eventsData));
-        }
+        let eventsData = JSON.parse(localStorage.getItem(LUNAR_EVENTS_KEY)) || { once: {}, solar: {}, lunar: {} };
 
         const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
-        function init() { renderCalendar(); }
+        function init() { 
+            // Chọn ngày hôm nay mặc định khi mới mở web
+            let t = new Date();
+            let d = t.getDate(), m = t.getMonth() + 1, y = t.getFullYear();
+            let lInfo = convertSolar2Lunar(d, m, y, 7);
+            
+            selectedKeys = {
+                dateStr: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+                solarKey: `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+                lunarKey: `${String(lInfo[1]).padStart(2, '0')}-${String(lInfo[0]).padStart(2, '0')}`,
+                day: d, month: m, year: y, lDay: lInfo[0], lMonth: lInfo[1]
+            };
+            
+            renderCalendar(); 
+            updateDetailsPanel();
+        }
+
         function showMessage(msg) {
             document.getElementById('msgText').innerText = msg;
             document.getElementById('msgBox').classList.remove('hidden');
@@ -248,7 +259,18 @@
             let today = new Date();
             currentMonth = today.getMonth();
             currentYear = today.getFullYear();
+            
+            let d = today.getDate(), m = today.getMonth() + 1, y = today.getFullYear();
+            let lInfo = convertSolar2Lunar(d, m, y, 7);
+            selectedKeys = {
+                dateStr: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+                solarKey: `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+                lunarKey: `${String(lInfo[1]).padStart(2, '0')}-${String(lInfo[0]).padStart(2, '0')}`,
+                day: d, month: m, year: y, lDay: lInfo[0], lMonth: lInfo[1]
+            };
+            
             renderCalendar();
+            updateDetailsPanel();
         }
 
         function renderCalendar() {
@@ -264,29 +286,35 @@
             if (startDayIndex === -1) startDayIndex = 6; 
             const today = new Date();
             
+            // Vẽ tháng trước
             for (let i = startDayIndex - 1; i >= 0; i--) {
                 let m = currentMonth === 0 ? 12 : currentMonth;
                 let y = currentMonth === 0 ? currentYear - 1 : currentYear;
-                grid.appendChild(createCell(daysInPrevMonth - i, m, y, true));
+                let dNum = daysInPrevMonth - i;
+                let isSun = new Date(y, m - 1, dNum).getDay() === 0;
+                grid.appendChild(createCell(dNum, m, y, true, false, isSun));
             }
 
+            // Vẽ tháng hiện tại
             for (let i = 1; i <= daysInMonth; i++) {
                 let isToday = (i === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
-                grid.appendChild(createCell(i, currentMonth + 1, currentYear, false, isToday));
+                let isSun = new Date(currentYear, currentMonth, i).getDay() === 0;
+                grid.appendChild(createCell(i, currentMonth + 1, currentYear, false, isToday, isSun));
             }
 
+            // Vẽ tháng sau
             const remainingCells = 42 - (startDayIndex + daysInMonth);
             for (let i = 1; i <= remainingCells; i++) {
                 let m = currentMonth === 11 ? 1 : currentMonth + 2;
                 let y = currentMonth === 11 ? currentYear + 1 : currentYear;
-                grid.appendChild(createCell(i, m, y, true));
+                let isSun = new Date(y, m - 1, i).getDay() === 0;
+                grid.appendChild(createCell(i, m, y, true, false, isSun));
             }
         }
 
-        function createCell(day, month, year, isMuted, isToday = false) {
+        function createCell(day, month, year, isMuted, isToday, isSunday) {
             const cell = document.createElement('div');
             
-            // Format Keys
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const solarKey = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
@@ -294,28 +322,43 @@
             const lDay = lunarInfo[0]; const lMonth = lunarInfo[1];
             const lunarKey = `${String(lMonth).padStart(2, '0')}-${String(lDay).padStart(2, '0')}`;
             
-            let cellClasses = 'calendar-cell bg-white relative p-1 sm:p-2 flex flex-col cursor-pointer border-t-[1px] border-l-[1px] border-transparent overflow-hidden ';
-            if (isMuted) cellClasses += 'text-gray-400 ';
-            else cellClasses += 'text-gray-800 ';
-            if (isToday) cellClasses += 'ring-2 ring-inset ring-blue-500 bg-blue-50/50 ';
+            // Layout ô ngày: Loại bỏ ép chiều cao, dùng padding và min-height gọn hơn
+            let cellClasses = 'calendar-cell relative p-1.5 sm:p-2.5 flex flex-col items-center justify-center min-h-[3.5rem] sm:min-h-[5.5rem] cursor-pointer ';
+            
+            // Xử lý background và border
+            if (isToday) cellClasses += 'bg-blue-50/60 ';
+            else cellClasses += 'bg-white ';
 
-            // Check events
-            let cellEvents = [];
-            if (eventsData.once[dateStr]) cellEvents.push(eventsData.once[dateStr]);
-            if (eventsData.solar[solarKey]) cellEvents.push(eventsData.solar[solarKey]);
-            if (eventsData.lunar[lunarKey]) cellEvents.push(eventsData.lunar[lunarKey]);
-
-            if (cellEvents.length > 0) cellClasses += 'has-event ';
+            // Nếu đang là ngày được chọn
+            let isSelected = selectedKeys && selectedKeys.dateStr === dateStr;
+            if (isSelected) {
+                cellClasses += 'ring-2 ring-inset ring-blue-600 z-10 ';
+            }
 
             cell.className = cellClasses;
-            cell.onclick = () => openModal(dateStr, solarKey, lunarKey, day, month, year, lDay, lMonth);
+            cell.onclick = () => {
+                selectedKeys = { dateStr, solarKey, lunarKey, day, month, year, lDay, lMonth };
+                renderCalendar(); // Cập nhật lại UI lưới (hiệu ứng chọn)
+                updateDetailsPanel(); // Cập nhật nội dung bảng dưới
+            };
 
+            // Ngày dương - Tăng size chữ
             const solarSpan = document.createElement('span');
-            solarSpan.className = `text-sm sm:text-lg font-semibold leading-tight ${isToday ? 'text-blue-600' : ''}`;
+            let solarClass = `text-lg sm:text-2xl font-bold leading-none mb-1 `;
+            
+            if (isSunday && !isMuted) solarClass += 'text-red-600 ';
+            else if (isSunday && isMuted) solarClass += 'text-red-300 ';
+            else if (isToday) solarClass += 'text-blue-600 ';
+            else if (isMuted) solarClass += 'text-gray-400 ';
+            else solarClass += 'text-gray-800 ';
+            
+            solarSpan.className = solarClass;
             solarSpan.innerText = day;
 
+            // Ngày âm - Tăng size chữ
             const lunarSpan = document.createElement('span');
-            let lunarClass = 'text-[10px] sm:text-xs mt-auto self-end font-medium leading-tight ';
+            let lunarClass = 'text-[11px] sm:text-sm font-medium leading-none ';
+            
             if (lDay === 1) {
                 lunarClass += 'text-red-600 font-bold'; 
                 lunarSpan.innerText = `${lDay}/${lMonth}`;
@@ -323,48 +366,64 @@
                 lunarClass += 'text-orange-500 font-bold'; 
                 lunarSpan.innerText = `${lDay}`;
             } else {
-                lunarClass += isMuted ? 'text-gray-300' : 'text-gray-500';
+                lunarClass += isMuted ? 'text-gray-400' : 'text-gray-500';
                 lunarSpan.innerText = lDay === 1 ? `${lDay}/${lMonth}` : lDay; 
             }
             lunarSpan.className = lunarClass;
 
-            cell.appendChild(solarSpan);
-            
-            if (cellEvents.length > 0) {
-                const preview = document.createElement('div');
-                preview.className = 'text-[9px] sm:text-[10px] leading-[1.1] text-gray-500 mt-[2px] line-clamp-2 overflow-hidden px-px w-full break-words';
-                preview.innerText = cellEvents.join(" | ");
-                cell.appendChild(preview);
+            // Dấu chấm đỏ báo có sự kiện
+            if (eventsData.once[dateStr] || eventsData.solar[solarKey] || eventsData.lunar[lunarKey]) {
+                cell.classList.add('has-event');
             }
 
+            cell.appendChild(solarSpan);
             cell.appendChild(lunarSpan);
             return cell;
         }
 
-        // --- QUẢN LÝ GHI CHÚ ---
-        function openModal(dateStr, solarKey, lunarKey, sDay, sMonth, sYear, lDay, lMonth) {
-            selectedKeys = { dateStr, solarKey, lunarKey };
-            
-            document.getElementById('modalTitle').innerText = `Ngày ${sDay}/${sMonth}/${sYear}`;
-            document.getElementById('modalSubtitle').innerText = `Dương: ${solarKey} | Âm: ${lunarKey}`;
-            
-            document.getElementById('noteOnce').value = eventsData.once[dateStr] || '';
-            document.getElementById('noteSolar').value = eventsData.solar[solarKey] || '';
-            document.getElementById('noteLunar').value = eventsData.lunar[lunarKey] || '';
+        // --- PANEL CHI TIẾT & GHI CHÚ ---
+        function updateDetailsPanel() {
+            if (!selectedKeys) return;
+            const panel = document.getElementById('dateDetailsPanel');
+            panel.classList.remove('hidden');
+
+            document.getElementById('panelTitle').innerText = `Thứ ${new Date(selectedKeys.year, selectedKeys.month - 1, selectedKeys.day).getDay() === 0 ? 'Chủ nhật' : new Date(selectedKeys.year, selectedKeys.month - 1, selectedKeys.day).getDay() + 1}, Ngày ${selectedKeys.day}/${selectedKeys.month}/${selectedKeys.year}`;
+            document.getElementById('panelSubtitle').innerText = `Âm lịch: Ngày ${selectedKeys.lDay} tháng ${selectedKeys.lMonth}`;
+
+            let evOnce = eventsData.once[selectedKeys.dateStr];
+            let evSolar = eventsData.solar[selectedKeys.solarKey];
+            let evLunar = eventsData.lunar[selectedKeys.lunarKey];
+
+            let html = '';
+            if (evOnce) html += `<div class="p-3 bg-gray-50 rounded-lg border border-gray-100"><span class="font-bold text-gray-800 block mb-1">Ghi chú sự kiện:</span>${evOnce.replace(/\n/g, '<br>')}</div>`;
+            if (evSolar) html += `<div class="p-3 bg-blue-50/50 rounded-lg border border-blue-100"><span class="font-bold text-blue-700 block mb-1">Kỷ niệm / Sinh nhật:</span>${evSolar.replace(/\n/g, '<br>')}</div>`;
+            if (evLunar) html += `<div class="p-3 bg-red-50/50 rounded-lg border border-red-100"><span class="font-bold text-red-700 block mb-1">Giỗ chạp / Việc Âm:</span>${evLunar.replace(/\n/g, '<br>')}</div>`;
+
+            if (!html) {
+                html = `<p class="text-gray-400 italic mt-2">Chưa có ghi chú nào cho ngày này.</p>`;
+            }
+            document.getElementById('panelContent').innerHTML = html;
+        }
+
+        function openNoteModal() {
+            if (!selectedKeys) return;
+            document.getElementById('noteOnce').value = eventsData.once[selectedKeys.dateStr] || '';
+            document.getElementById('noteSolar').value = eventsData.solar[selectedKeys.solarKey] || '';
+            document.getElementById('noteLunar').value = eventsData.lunar[selectedKeys.lunarKey] || '';
             
             const modal = document.getElementById('noteModal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            setTimeout(() => { document.getElementById('noteOnce').focus(); }, 100);
         }
 
         function closeModal() {
             document.getElementById('noteModal').classList.add('hidden');
             document.getElementById('noteModal').classList.remove('flex');
-            selectedKeys = {};
         }
 
         function saveNote() {
-            if (!selectedKeys.dateStr) return;
+            if (!selectedKeys) return;
 
             const nOnce = document.getElementById('noteOnce').value.trim();
             const nSolar = document.getElementById('noteSolar').value.trim();
@@ -377,6 +436,7 @@
             localStorage.setItem(LUNAR_EVENTS_KEY, JSON.stringify(eventsData));
             closeModal();
             renderCalendar(); 
+            updateDetailsPanel(); // Hiển thị lại ghi chú mới lưu ở khung dưới
         }
 
         // --- XUẤT NHẬP DỮ LIỆU ---
@@ -386,7 +446,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `lich_am_v2_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `lich_am_v3_${new Date().toISOString().slice(0,10)}.json`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
@@ -398,17 +458,16 @@
             reader.onload = function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    // Hỗ trợ merge data V2
                     if(imported.once || imported.solar || imported.lunar) {
                         eventsData.once = { ...eventsData.once, ...(imported.once || {}) };
                         eventsData.solar = { ...eventsData.solar, ...(imported.solar || {}) };
                         eventsData.lunar = { ...eventsData.lunar, ...(imported.lunar || {}) };
                     } else {
-                        // Nếu import nhầm file V1, ném vào once
                         eventsData.once = { ...eventsData.once, ...imported };
                     }
                     localStorage.setItem(LUNAR_EVENTS_KEY, JSON.stringify(eventsData));
                     renderCalendar();
+                    updateDetailsPanel();
                     showMessage("Nhập dữ liệu thành công!");
                 } catch (err) {
                     showMessage("File không hợp lệ hoặc bị lỗi.");
@@ -418,8 +477,11 @@
             reader.readAsText(file);
         }
 
+        // Đóng các popup khi click ra ngoài
         document.getElementById('noteModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
         document.getElementById('msgBox').addEventListener('click', function(e) { if (e.target === this) closeMsgBox(); });
+        
+        // Chạy app
         init();
     </script>
 </body>
